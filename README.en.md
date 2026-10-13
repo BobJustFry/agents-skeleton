@@ -13,6 +13,39 @@ It suits:
 
 It works both in new projects and in existing ones.
 
+## One-phrase install
+
+Open the target project in Claude Code and write:
+
+> Установи каркас: https://github.com/BobJustFry/agents-skeleton
+
+Claude downloads the kit, analyzes the project, shows the plan and installs after your "да". Then open a **new** session in that folder and write "Проведи онбординг Каркаса".
+
+### Instructions for Claude Code (follow step by step; talk to the owner in Russian)
+
+1. **Kit location.** If `P:\Projects\Каркас` or `%USERPROFILE%\.claude\karkas` already holds this repo (`git remote get-url origin`), run `git pull --ff-only`. Otherwise clone it into `%USERPROFILE%\.claude\karkas`. Never clone the kit inside the project.
+2. **Project** is the session's folder. If you are in a worktree (`.claude\worktrees\…`), the target is the repository's main folder. Ask the owner if unsure.
+3. **Git.** Run `git status --porcelain`. If there are uncommitted changes, show them and ask whether to commit them (propose a message). Do not commit or continue without "да".
+4. **Analysis:**
+   ```
+   powershell -NoProfile -ExecutionPolicy Bypass -File "<kit>\install.ps1" -Target "<project>" -Analyze
+   ```
+   Summarize the plan briefly in Russian:
+   - what will be added;
+   - what will be appended (`CLAUDE.md`, settings, `.gitignore`);
+   - conflicts;
+   - the project's own agents, hooks and rules.
+
+   Then ask "Устанавливаю?".
+5. **Install** only after "да":
+   ```
+   powershell -NoProfile -ExecutionPolicy Bypass -File "<kit>\install.ps1" -Target "<project>" -Yes
+   ```
+   Then summarize `.claude\team\install-report.md`.
+6. **Do not commit the installation yourself.** Offer the owner to commit it.
+7. **Tell the owner:** new agents and hooks are not loaded in this session. Open a new session in this folder and write "Проведи онбординг Каркаса".
+8. **Update** ("обнови каркас"): steps 1, 3 and 4, then run with `-Update -Yes`.
+
 ## How to use
 
 **1. Get the kit** (once):
