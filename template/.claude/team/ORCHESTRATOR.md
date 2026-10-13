@@ -520,7 +520,7 @@ REPORT: per the report template in your role prompt (section 7)
 Уровни усилий (`effort`): `low` → `medium` → `high` → `xhigh` → `max`.
 В Claude Code у Opus 5.5, Sonnet 5.5 и Haiku 5.5 по умолчанию стоит `medium`, у Fable 5.1 — `high` (в Claude API у Sonnet 5.5 по умолчанию `high`). Поэтому уровень всегда задаётся **явно**.
 
-**Провайдеры.** Каталог выше действует для Claude API и подписок Claude. На Amazon Bedrock, Google Cloud Vertex AI и Microsoft Foundry алиасы `sonnet` / `opus` / `haiku` могут указывать на более старые модели. Если проект работает через такого провайдера, задавай агентам полные ID моделей из документации провайдера и сверяй их в `docs/knowledge/`.
+**Провайдеры.** Каталог выше действует для Claude API и подписок Claude. На Amazon Bedrock, Google Cloud Vertex AI, Microsoft Foundry и Claude Platform on AWS алиасы `sonnet` / `opus` / `haiku` могут указывать на более старые модели. Например, на Claude Platform on AWS `sonnet` ведёт на Sonnet 4.6, а `haiku` — на Haiku 4.5. Если проект работает через такого провайдера, задавай агентам полные ID моделей из документации провайдера и сверяй их в `docs/knowledge/`.
 
 ### 13.2. Матрица выбора по типу задачи
 
@@ -557,6 +557,7 @@ REPORT: per the report template in your role prompt (section 7)
 
 Здесь фиксируются только реальные изменения: новые или снятые модели, изменения цен, пересмотр матрицы. Строка «Последний пересмотр» меняется только вместе с реальным изменением.
 
+- 2026-10-13 — в примечание о провайдерах добавлен Claude Platform on AWS (алиасы `sonnet` → Sonnet 4.6, `haiku` → Haiku 4.5). Источник: https://code.claude.com/docs/en/model-config
 - 2026-10-13 — добавлено примечание о провайдерах (Bedrock, Vertex AI, Foundry): там алиасы могут указывать на более старые модели. Источник: https://code.claude.com/docs/en/model-config
 - 2026-10-13 — первичная версия: Haiku 5.5, Sonnet 5.5, Opus 5.5, Fable 5.1.
 - 2026-10-13 12:52 — исправлен 13.1: в Claude Code effort по умолчанию у Sonnet 5.5 — `medium`, а не `high` (`high` — значение по умолчанию в Claude API). Добавлено значение по умолчанию для Fable 5.1 (`high`). Состав моделей, цены и алиасы не изменились; матрица 13.2 и модели агентов не менялись, потому что effort у агентов задан явно. Источники: https://code.claude.com/docs/en/model-config, https://platform.claude.com/docs/en/about-claude/models/overview.
