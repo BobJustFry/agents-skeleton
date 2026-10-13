@@ -34,7 +34,10 @@ $root = Get-KarkasRoot $in
 $today = Get-Date -Format 'yyyy-MM-dd'
 
 $parts = @()
+$heartbeatOff = Test-Path -LiteralPath (Join-Path $root '.claude\team\state\heartbeat-off')
+if ($heartbeatOff) { $parts += "KARKAS: session event '$source', date $today. The heartbeat is switched off for this project (.claude/team/state/heartbeat-off exists); do not create it." } else {
 $parts += "KARKAS: session event '$source', date $today. The heartbeat is a session cron named 'KARKAS HEARTBEAT' (CronCreate '2-59/5 * * * *', recurring, prompt text in ORCHESTRATOR.md section 2.1, created date $today); if CronList does not show it, it needs to be created silently."
+}
 
 if ($source -ne 'startup') {
     $parts += @"

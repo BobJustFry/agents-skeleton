@@ -45,6 +45,11 @@ results["post-compact: plugin:agent name sanitized"] = any("plugin_agent" in f.n
 out = run("subagent-start.ps1", {"agent_type": "qa-engineer", "cwd": str(T)})
 results["subagent-start: valid JSON"] = json.loads(out)["hookSpecificOutput"]["hookEventName"] == "SubagentStart"
 
+(T / ".claude/team/state/heartbeat-off").write_text("", encoding="utf-8")
+results["heartbeat-off: stop does not demand heartbeat"] = "HEARTBEAT" not in run("stop-guard.ps1", dict(stop, session_crons=[], cwd=str(T)))
+results["heartbeat-off: session-start says switched off"] = "switched off" in run("session-start.ps1", {"source": "startup", "cwd": str(T)})
+(T / ".claude/team/state/heartbeat-off").unlink()
+
 for name, ok in results.items():
     print(("PASS " if ok else "FAIL ") + name)
 failed = [n for n, ok in results.items() if not ok]

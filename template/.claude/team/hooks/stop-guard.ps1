@@ -35,7 +35,8 @@ $root = Get-KarkasRoot $in
 $reasons = @()
 
 # 1. Heartbeat must exist (only checkable when the harness passes session_crons)
-if ($in.PSObject.Properties.Name -contains 'session_crons') {
+$heartbeatOff = Test-Path -LiteralPath (Join-Path $root '.claude\team\state\heartbeat-off')
+if (-not $heartbeatOff -and $in.PSObject.Properties.Name -contains 'session_crons') {
     $crons = [string](ConvertTo-Json -InputObject @($in.session_crons) -Depth 6 -Compress)
     if (-not $crons.Contains('KARKAS HEARTBEAT')) {
         $reasons += 'No KARKAS HEARTBEAT cron in this session: create it now as described in ORCHESTRATOR.md section "Continuous work" (CronCreate, every 5 minutes).'
