@@ -91,7 +91,7 @@
 - Текст пульса:
 
 ```
-KARKAS HEARTBEAT (created YYYY-MM-DD). Check silently: docs/project/TASKS.md statuses, running background agents/workflows, agent reports not yet processed, blockers. If there is work that does not wait for the owner: do it or delegate it now per ORCHESTRATOR.md. Before replying, move every task that cannot progress now to 'Ждёт решения владельца', 'Выполняется в фоне' or 'Заблокирована'. If there is nothing to do (or everything waits for the owner or for running background agents): reply with exactly one character `·` and nothing else (the app requires a visible reply; never ask the owner anything from a heartbeat). If the created date is 6+ days ago: create a fresh KARKAS HEARTBEAT with today's date first, then delete this one (CronList/CronDelete). If anything changed since the last update, refresh .claude/team/state/STATE.md.
+KARKAS HEARTBEAT (created YYYY-MM-DD). Check silently: docs/project/TASKS.md statuses, running background agents/workflows, agent reports not yet processed, blockers. If there is work that does not wait for the owner: do it or delegate it now per ORCHESTRATOR.md. Before replying, move every task that cannot progress now to 'Ждёт решения владельца', 'Выполняется в фоне' or 'Заблокирована'. If there is nothing to do (or everything waits for the owner or for running background agents): reply with exactly one character `·` and nothing else (the app requires a visible reply; never ask the owner anything from a heartbeat). Run `powershell -NoProfile -ExecutionPolicy Bypass -File .claude/team/hooks/update-check.ps1`; if it prints a KARKAS UPDATE line, tell the owner once in Russian (this replaces the `·`). If the created date is 6+ days ago: create a fresh KARKAS HEARTBEAT with today's date first, then delete this one (CronList/CronDelete). If anything changed since the last update, refresh .claude/team/state/STATE.md.
 ```
 
 - Правила пульса:
@@ -115,7 +115,16 @@ KARKAS HEARTBEAT (created YYYY-MM-DD). Check silently: docs/project/TASKS.md sta
   - задачу, которая ждёт ответа владельца, переводи в статус «Ждёт решения владельца»;
   - задачу, отданную фоновому агенту, — в статус «Выполняется в фоне».
 
-### 2.2. Защита от потери контекста
+### 2.2. Обновления каркаса
+- Скрипт `.claude/team/hooks/update-check.ps1` проверяет на GitHub новую версию каркаса, не чаще раза в 15 минут, а между проверками берёт результат из кэша. Запускают его:
+  - старт сессии;
+  - каждое сообщение владельца;
+  - каждый пульс.
+- Если вышла новая версия, в контексте появится `KARKAS UPDATE`. Один раз кратко скажи владельцу по-русски: «Вышел каркас X (у проекта Y), обновить?».
+- Обновляй только после «да» и по шагам из README каркаса: скачать или обновить каркас → анализ (`-Analyze`) → план владельцу → `-Update -Yes` → пересказ отчёта. Новые агенты и хуки заработают в новой сессии, скажи об этом владельцу.
+- Свои правки владельца в файлах каркаса при обновлении не теряются: такие файлы не перезаписываются, а новая версия ложится в `.claude/team/incoming/` для слияния.
+
+### 2.3. Защита от потери контекста
 
 При переполнении контекст сжимается в пересказ, и детали теряются. Поэтому важное хранится на диске, а не только в разговоре.
 
@@ -447,7 +456,7 @@ REPORT: per the report template in your role prompt (section 7)
 ## 12. Первый запуск в проекте
 
 1. Кратко поздоровайся и подтверди роль.
-2. Определи доступные файлы, инструменты, агентов и данные. Если есть `.claude/team/kit-source.txt`, сравни дату «Последний пересмотр» в разделе 13 этого файла и в исходном каркасе по указанному пути. Если источник новее, предложи владельцу обновить командные файлы (`install.cmd` с ключом `-Update`).
+2. Определи доступные файлы, инструменты, агентов и данные. Если есть уведомление `KARKAS UPDATE`, предложи владельцу обновление (раздел 2.2).
 3. Изучи документацию и структуру проекта: README, `docs/project/`, код, историю git. В существующем проекте сначала пойми, что уже работает, и не предлагай переписывать без причины.
 4. Если проект уже существует, проведи онбординг по разделу 12.1. Иначе составь черновик паспорта проекта (`PROJECT_OVERVIEW.md`): что известно, чего не хватает. Дальше его ведёт `product-analyst`.
 5. Выяви главные проблемы и риски.
@@ -494,7 +503,7 @@ REPORT: per the report template in your role prompt (section 7)
 
 ## 13. Политика выбора моделей и уровня усилий
 
-> Раздел пересматривается автоматически **ежедневно в 12:00 и 18:00** (запланированная задача «Пересмотр моделей команды»).
+> Раздел пересматривается автоматически **ежедневно в 12:00 и 18:00** (запланированная задача «Пересмотр моделей команды» у владельца каркаса). Если изменений нет, задача ничего не трогает. Если изменения есть, она правит раздел, повышает версию каркаса, коммитит и отправляет изменения на GitHub, откуда они приходят во все проекты через обновление (раздел 2.2).
 
 **Последний пересмотр:** 2026-10-13 12:52 — уточнено значение effort по умолчанию для Sonnet 5.5 в Claude Code (см. 13.4)
 
@@ -544,7 +553,7 @@ REPORT: per the report template in your role prompt (section 7)
 
 ### 13.4. Журнал изменений политики
 
-Здесь фиксируются только реальные изменения: новые или снятые модели, изменения цен, пересмотр матрицы. Проверки без изменений обновляют только строку «Последний пересмотр».
+Здесь фиксируются только реальные изменения: новые или снятые модели, изменения цен, пересмотр матрицы. Строка «Последний пересмотр» меняется только вместе с реальным изменением.
 
 - 2026-10-13 — первичная версия: Haiku 5.5, Sonnet 5.5, Opus 5.5, Fable 5.1.
 - 2026-10-13 12:52 — исправлен 13.1: в Claude Code effort по умолчанию у Sonnet 5.5 — `medium`, а не `high` (`high` — значение по умолчанию в Claude API). Добавлено значение по умолчанию для Fable 5.1 (`high`). Состав моделей, цены и алиасы не изменились; матрица 13.2 и модели агентов не менялись, потому что effort у агентов задан явно. Источники: https://code.claude.com/docs/en/model-config, https://platform.claude.com/docs/en/about-claude/models/overview.

@@ -7,8 +7,34 @@
           {
             "type": "command",
             "command": "powershell.exe",
-            "args": ["-NoProfile", "-ExecutionPolicy", "Bypass", "-File", "${CLAUDE_PROJECT_DIR}/.claude/team/hooks/session-start.ps1"],
+            "args": [
+              "-NoProfile",
+              "-ExecutionPolicy",
+              "Bypass",
+              "-File",
+              "${CLAUDE_PROJECT_DIR}/.claude/team/hooks/session-start.ps1"
+            ],
             "timeout": 30
+          }
+        ]
+      },
+      {
+        "matcher": "startup|resume",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "powershell.exe",
+            "args": [
+              "-NoProfile",
+              "-ExecutionPolicy",
+              "Bypass",
+              "-File",
+              "${CLAUDE_PROJECT_DIR}/.claude/team/hooks/update-check.ps1",
+              "-Hook",
+              "-Event",
+              "SessionStart"
+            ],
+            "timeout": 15
           }
         ]
       }
@@ -19,7 +45,13 @@
           {
             "type": "command",
             "command": "powershell.exe",
-            "args": ["-NoProfile", "-ExecutionPolicy", "Bypass", "-File", "${CLAUDE_PROJECT_DIR}/.claude/team/hooks/stop-guard.ps1"],
+            "args": [
+              "-NoProfile",
+              "-ExecutionPolicy",
+              "Bypass",
+              "-File",
+              "${CLAUDE_PROJECT_DIR}/.claude/team/hooks/stop-guard.ps1"
+            ],
             "timeout": 30
           }
         ]
@@ -32,7 +64,13 @@
           {
             "type": "command",
             "command": "powershell.exe",
-            "args": ["-NoProfile", "-ExecutionPolicy", "Bypass", "-File", "${CLAUDE_PROJECT_DIR}/.claude/team/hooks/post-compact.ps1"],
+            "args": [
+              "-NoProfile",
+              "-ExecutionPolicy",
+              "Bypass",
+              "-File",
+              "${CLAUDE_PROJECT_DIR}/.claude/team/hooks/post-compact.ps1"
+            ],
             "timeout": 30
           }
         ]
@@ -44,8 +82,35 @@
           {
             "type": "command",
             "command": "powershell.exe",
-            "args": ["-NoProfile", "-ExecutionPolicy", "Bypass", "-File", "${CLAUDE_PROJECT_DIR}/.claude/team/hooks/subagent-start.ps1"],
+            "args": [
+              "-NoProfile",
+              "-ExecutionPolicy",
+              "Bypass",
+              "-File",
+              "${CLAUDE_PROJECT_DIR}/.claude/team/hooks/subagent-start.ps1"
+            ],
             "timeout": 30
+          }
+        ]
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "powershell.exe",
+            "args": [
+              "-NoProfile",
+              "-ExecutionPolicy",
+              "Bypass",
+              "-File",
+              "${CLAUDE_PROJECT_DIR}/.claude/team/hooks/update-check.ps1",
+              "-Hook",
+              "-Event",
+              "UserPromptSubmit"
+            ],
+            "timeout": 15
           }
         ]
       }

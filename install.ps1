@@ -47,11 +47,18 @@ $gitignoreLines = @(
     '.claude/team/backup/',
     '.claude/team/incoming/',
     '.claude/team/kit-source.txt',
+    '.claude/team/state/update-check.json',
     '.claude/team/state/screenshots/',
     '.claude/team/state/compactions/',
     '.claude/agent-memory-local/'
 )
 
+function Invoke-GitQuiet {
+    # git writes errors to stderr; with ErrorActionPreference=Stop PowerShell 5.1 would turn that into a terminating error
+    $old = $ErrorActionPreference; $ErrorActionPreference = 'Continue'
+    try { $out = & git @args 2>$null; $code = $LASTEXITCODE } catch { $out = $null; $code = 1 } finally { $ErrorActionPreference = $old }
+    return [pscustomobject]@{ Out = $out; Code = $code }
+}
 function Get-Hash([string]$path) { (Get-FileHash -LiteralPath $path -Algorithm SHA256).Hash }
 
 # ---------- 0. Папка ----------
@@ -70,10 +77,9 @@ if (-not $isNew) {
 # ---------- 1. Анализ ----------
 $isGit = $false; $dirty = @()
 if (-not $isNew) {
-    $null = & git -C $Target rev-parse --is-inside-work-tree 2>$null
-    if ($LASTEXITCODE -eq 0) {
+    if ((Invoke-GitQuiet -C $Target rev-parse --is-inside-work-tree).Code -eq 0) {
         $isGit = $true
-        $dirty = @(& git -C $Target status --porcelain 2>$null | Where-Object { $_ })
+        $dirty = @((Invoke-GitQuiet -C $Target status --porcelain).Out | Where-Object { $_ })
     }
 }
 $dstSettings = Join-Path $Target '.claude\settings.json'
@@ -113,27 +119,26 @@ if (Test-Path -LiteralPath $dstSettings) {
     $dst = $dstText | ConvertFrom-Json
     $src = [IO.File]::ReadAllText($srcSettings) | ConvertFrom-Json
     if (-not ($dst.PSObject.Properties.Name -contains 'hooks')) { $dst | Add-Member -NotePropertyName hooks -NotePropertyValue ([pscustomobject]@{}) }
+    $ourMark = '.claude/team/hooks/'
     foreach ($ev in $src.hooks.PSObject.Properties.Name) {
         $ours = @($src.hooks.$ev)
-        $script = ([regex]::Match((ConvertTo-Json -InputObject $ours -Depth 16 -Compress), '[\w-]+\.ps1')).Value
         if ($dst.hooks.PSObject.Properties.Name -contains $ev) {
-            $existingEv = ConvertTo-Json -InputObject @($dst.hooks.$ev) -Depth 16 -Compress
-            if ($script -and $existingEv.Contains($script)) {
-                if (-not $Update) { continue }
-                $others = @(@($dst.hooks.$ev) | Where-Object { -not (ConvertTo-Json -InputObject $_ -Depth 16 -Compress).Contains($script) })
-                $newEv = @($others + $ours)
-                if ((ConvertTo-Json -InputObject $newEv -Depth 16 -Compress) -eq $existingEv) { continue }
-                $dst.hooks.$ev = $newEv
-            } else {
-                $dst.hooks.$ev = @(@($dst.hooks.$ev) + $ours)
-            }
+            $existing = @($dst.hooks.$ev)
+            $existingJson = ConvertTo-Json -InputObject $existing -Depth 16 -Compress
+            $others = @($existing | Where-Object { -not (ConvertTo-Json -InputObject $_ -Depth 16 -Compress).Contains($ourMark) })
+            $ourScripts = @([regex]::Matches((ConvertTo-Json -InputObject $ours -Depth 16 -Compress), '[\w-]+\.ps1') | ForEach-Object { $_.Value } | Sort-Object -Unique)
+            $missing = @($ourScripts | Where-Object { -not $existingJson.Contains($_) })
+            if (-not $Update -and $missing.Count -eq 0) { continue }
+            $newEv = @($others + $ours)
+            if ((ConvertTo-Json -InputObject $newEv -Depth 16 -Compress) -eq $existingJson) { continue }
+            $dst.hooks.$ev = $newEv
         } else {
             $dst.hooks | Add-Member -NotePropertyName $ev -NotePropertyValue $ours
         }
         $addedEvents += $ev
     }
     if ($addedEvents.Count -eq 0) { $settingsPlan = 'same' } else { $settingsPlan = 'merge'; $newSettingsJson = $dst | ConvertTo-Json -Depth 32 }
-    $foreignHooks = @($dst.hooks.PSObject.Properties | ForEach-Object { $ev = $_.Name; @($_.Value) | Where-Object { -not ((ConvertTo-Json -InputObject $_ -Depth 16 -Compress) -match 'stop-guard|session-start|post-compact|subagent-start') } | ForEach-Object { $ev } })
+    $foreignHooks = @($dst.hooks.PSObject.Properties | ForEach-Object { $ev = $_.Name; @($_.Value) | Where-Object { -not ((ConvertTo-Json -InputObject $_ -Depth 16 -Compress).Contains('.claude/team/hooks/')) } | ForEach-Object { $ev } })
 } else { $foreignHooks = @() }
 
 # CLAUDE.md (в корне или в .claude/)
@@ -235,7 +240,12 @@ if ($giPlan -in @('create', 'append')) {
 }
 [IO.File]::WriteAllText((Join-Path $Target '.claude\team\kit-source.txt'), (Join-Path $templateRoot '.claude\team\ORCHESTRATOR.md') + "`r`n", $utf8NoBom)
 $sorted = [ordered]@{}; foreach ($k in ($newManifest.Keys | Sort-Object)) { $sorted[$k] = $newManifest[$k] }
-[IO.File]::WriteAllText($manifestPath, (@{ installed = (Get-Date -Format 's'); files = $sorted } | ConvertTo-Json -Depth 4), $utf8NoBom)
+$kitVersion = if (Test-Path -LiteralPath (Join-Path $PSScriptRoot 'VERSION')) { ([IO.File]::ReadAllText((Join-Path $PSScriptRoot 'VERSION'))).Trim() } else { '' }
+$kitRepo = ''
+$origin = Invoke-GitQuiet -C $PSScriptRoot remote get-url origin
+$originUrl = [string]$origin.Out
+if ($origin.Code -eq 0 -and $originUrl -match 'github\.com[/:]([^/]+)/([^/.]+?)(\.git)?$') { $kitRepo = "https://github.com/$($Matches[1])/$($Matches[2])" }
+[IO.File]::WriteAllText($manifestPath, ([ordered]@{ version = $kitVersion; repo = $kitRepo; installed = (Get-Date -Format 's'); files = $sorted } | ConvertTo-Json -Depth 4), $utf8NoBom)
 
 # ---------- 4. Отчёт ----------
 $r = @()

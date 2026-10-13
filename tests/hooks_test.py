@@ -50,6 +50,26 @@ results["heartbeat-off: stop does not demand heartbeat"] = "HEARTBEAT" not in ru
 results["heartbeat-off: session-start says switched off"] = "switched off" in run("session-start.ps1", {"source": "startup", "cwd": str(T)})
 (T / ".claude/team/state/heartbeat-off").unlink()
 
+# update-check: newer version on "GitHub" (local file URL), 15-minute cache, notify once
+vfile = T.parent / "VERSION"; vfile.write_text("9.9.9" + chr(10), encoding="utf-8")
+(T / ".claude/team/kit-manifest.json").write_text(json.dumps({"version": "0.1.0", "repo": "https://github.com/x/y", "files": {}}), encoding="utf-8")
+uenv = dict(ENV, KARKAS_VERSION_URL=vfile.as_uri())
+def upd(args, payload=None):
+    data = json.dumps(payload or {"cwd": str(T)}, ensure_ascii=False).encode("utf-8")
+    r = subprocess.run(["powershell.exe", "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", str(H / "update-check.ps1"), *args], input=data, capture_output=True, env=uenv, cwd=str(T))
+    return r.stdout.decode("utf-8", "replace").strip()
+first = upd(["-Hook", "-Event", "UserPromptSubmit"])
+results["update-check: newer version reported"] = "KARKAS UPDATE" in first and "9.9.9" in first
+results["update-check: same version not repeated on next prompt"] = upd(["-Hook", "-Event", "UserPromptSubmit"]) == ""
+results["update-check: SessionStart repeats the notice"] = "KARKAS UPDATE" in upd(["-Hook", "-Event", "SessionStart"])
+vfile.write_text("9.9.10" + chr(10), encoding="utf-8")
+results["update-check: cache prevents refetch within 15 min"] = upd([]) == ""
+cache = json.loads((T / ".claude/team/state/update-check.json").read_text(encoding="utf-8")); cache["checked"] = "2000-01-01T00:00:00"
+(T / ".claude/team/state/update-check.json").write_text(json.dumps(cache), encoding="utf-8")
+results["update-check: after 15 min refetch, plain mode prints notice"] = "9.9.10" in upd([])
+(T / ".claude/team/kit-manifest.json").write_text(json.dumps({"version": "9.9.10", "repo": "https://github.com/x/y", "files": {}}), encoding="utf-8")
+results["update-check: up to date -> silent"] = upd(["-Hook", "-Event", "SessionStart"]) == ""
+
 for name, ok in results.items():
     print(("PASS " if ok else "FAIL ") + name)
 failed = [n for n, ok in results.items() if not ok]
