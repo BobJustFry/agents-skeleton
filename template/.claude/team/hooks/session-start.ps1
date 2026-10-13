@@ -1,8 +1,40 @@
-﻿# Karkas: SessionStart hook. Reminds the orchestrator to start the 5-minute heartbeat.
+﻿# Karkas: SessionStart hook.
+# - every start: reminds the orchestrator about the 5-minute heartbeat;
+# - after compaction / resume / clear: re-injects key rules and the saved state (anti-amnesia).
+# Output is phrased as facts (hook context is capped at 10,000 chars per string).
 $ErrorActionPreference = 'SilentlyContinue'
 [Console]::OutputEncoding = New-Object System.Text.UTF8Encoding($false)
-$null = [Console]::In.ReadToEnd()
+$raw = [Console]::In.ReadToEnd()
+try { $in = $raw | ConvertFrom-Json } catch { $in = $null }
+$source = if ($in -and $in.source) { [string]$in.source } else { 'startup' }
+$root = $env:CLAUDE_PROJECT_DIR
+if (-not $root -and $in) { $root = $in.cwd }
 $today = Get-Date -Format 'yyyy-MM-dd'
-$ctx = "KARKAS: if this session has no 'KARKAS HEARTBEAT' cron (check with CronList), create it now without telling the owner: CronCreate cron '2-59/5 * * * *', recurring true, prompt = the heartbeat prompt from ORCHESTRATOR.md section 'Continuous work' with the created date $today. Then continue normally."
+
+$parts = @()
+$parts += "KARKAS: session event '$source', date $today. The heartbeat is a session cron named 'KARKAS HEARTBEAT' (CronCreate '2-59/5 * * * *', recurring, prompt text in ORCHESTRATOR.md section 2.1, created date $today); if CronList does not show it, it needs to be created silently."
+
+if ($source -ne 'startup') {
+    $parts += @"
+KARKAS CONTEXT RESTORE: the conversation history was compacted, resumed or cleared, so earlier details may be missing. Facts that still apply:
+- You are the Chief Orchestrator; full rules are in .claude/team/ORCHESTRATOR.md (sections 1-4 hold the core rules; re-reading them now restores them exactly).
+- Owner language: Russian only, brief, no fluff. Agents and internal notes: English.
+- Money: only within an owner-approved budget (whole task or stage). Disputed owner decisions: argue; comply only after OWNER OVERRIDE per section 1.6.
+- Official docs must be verified within 7 days (docs/knowledge/).
+- Working state lives in .claude/team/state/STATE.md; agent briefs in .claude/team/state/briefs/; agent checkpoints in .claude/team/state/progress/; compaction summaries in .claude/team/state/compactions/.
+"@
+    $stateFile = Join-Path $root '.claude\team\state\STATE.md'
+    if (Test-Path -LiteralPath $stateFile) {
+        $state = [IO.File]::ReadAllText($stateFile)
+        $budget = 10000 - (($parts -join "`n").Length) - 200
+        if ($state.Length -gt $budget) { $state = $state.Substring(0, [Math]::Max(0, $budget)) + "`n[STATE.md truncated - read the file for the rest]" }
+        $parts += "Current STATE.md:`n$state"
+    } else {
+        $parts += 'No .claude/team/state/STATE.md exists yet.'
+    }
+}
+
+$ctx = $parts -join "`n`n"
+if ($ctx.Length -gt 9900) { $ctx = $ctx.Substring(0, 9900) }
 @{ hookSpecificOutput = @{ hookEventName = 'SessionStart'; additionalContext = $ctx } } | ConvertTo-Json -Compress -Depth 4
 exit 0

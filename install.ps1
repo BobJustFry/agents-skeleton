@@ -96,22 +96,27 @@ if (-not (Test-Path -LiteralPath $dstSettings)) {
     Write-Host '  добавлен:  .claude\settings.json (хуки непрерывной работы)'
 } else {
     $dstText = [IO.File]::ReadAllText($dstSettings)
-    if ($dstText.Contains('stop-guard.ps1') -and $dstText.Contains('session-start.ps1')) {
+    $dst = $dstText | ConvertFrom-Json
+    $src = [IO.File]::ReadAllText($srcSettings) | ConvertFrom-Json
+    if (-not ($dst.PSObject.Properties.Name -contains 'hooks')) {
+        $dst | Add-Member -NotePropertyName hooks -NotePropertyValue ([pscustomobject]@{})
+    }
+    $addedEvents = @()
+    foreach ($ev in $src.hooks.PSObject.Properties.Name) {
+        $ours = @($src.hooks.$ev)
+        $script = ([regex]::Match((ConvertTo-Json -InputObject $ours -Depth 16 -Compress), '[\w-]+\.ps1')).Value
+        if ($dst.hooks.PSObject.Properties.Name -contains $ev) {
+            $existingEv = ConvertTo-Json -InputObject @($dst.hooks.$ev) -Depth 16 -Compress
+            if ($script -and $existingEv.Contains($script)) { continue }
+            $dst.hooks.$ev = @(@($dst.hooks.$ev) + $ours)
+        } else {
+            $dst.hooks | Add-Member -NotePropertyName $ev -NotePropertyValue $ours
+        }
+        $addedEvents += $ev
+    }
+    if ($addedEvents.Count -eq 0) {
         $stats.kept++
     } else {
-        try { $dst = $dstText | ConvertFrom-Json } catch { throw "Не удалось прочитать $dstSettings (неверный JSON). Исправьте файл и запустите снова." }
-        $src = [IO.File]::ReadAllText($srcSettings) | ConvertFrom-Json
-        if (-not ($dst.PSObject.Properties.Name -contains 'hooks')) {
-            $dst | Add-Member -NotePropertyName hooks -NotePropertyValue ([pscustomobject]@{})
-        }
-        foreach ($ev in @('SessionStart', 'Stop')) {
-            $ours = @($src.hooks.$ev)
-            if ($dst.hooks.PSObject.Properties.Name -contains $ev) {
-                $dst.hooks.$ev = @(@($dst.hooks.$ev) + $ours)
-            } else {
-                $dst.hooks | Add-Member -NotePropertyName $ev -NotePropertyValue $ours
-            }
-        }
         if ($PSCmdlet.ShouldProcess($dstSettings, 'Добавить хуки (старая версия -> backup)')) {
             $bak = Join-Path $backupDir '.claude\settings.json'
             New-Item -ItemType Directory -Force -Path (Split-Path -Parent $bak) | Out-Null
@@ -119,7 +124,7 @@ if (-not (Test-Path -LiteralPath $dstSettings)) {
             [IO.File]::WriteAllText($dstSettings, ($dst | ConvertTo-Json -Depth 32), $utf8NoBom)
         }
         $stats.updated++
-        Write-Host '  обновлён:  .claude\settings.json: добавлены хуки непрерывной работы (ваши настройки сохранены, копия в backup)'
+        Write-Host ('  обновлён:  .claude\settings.json: добавлены хуки ' + ($addedEvents -join ', ') + ' (ваши настройки сохранены, копия в backup)')
     }
 }
 
@@ -139,12 +144,18 @@ if (-not (Test-Path -LiteralPath $claudeMd)) {
     Write-Host '  CLAUDE.md: создан из шаблона'
 } else {
     $existing = [IO.File]::ReadAllText($claudeMd)
-    if ($existing -match [regex]::Escape($importLine)) {
-        Write-Host '  CLAUDE.md: координатор уже подключён'
-    } elseif ($PSCmdlet.ShouldProcess($claudeMd, 'Дописать импорт координатора')) {
-        $block = "`r`n`r`n# AI-команда (Каркас)`r`n$importLine`r`n"
-        [IO.File]::WriteAllText($claudeMd, $existing.TrimEnd() + $block, $utf8NoBom)
-        Write-Host '  CLAUDE.md: дописан импорт координатора (остальное содержимое не тронуто)'
+    $tplText = [IO.File]::ReadAllText((Join-Path $templateRoot 'CLAUDE.md'))
+    $compactMarker = '# Karkas: compaction instructions'
+    $compactBlock = $tplText.Substring($tplText.IndexOf($compactMarker)).Trim()
+    $append = ''
+    $what = @()
+    if (-not $existing.Contains($importLine)) { $append += "`r`n`r`n# AI-команда (Каркас)`r`n$importLine"; $what += 'импорт координатора' }
+    if (-not $existing.Contains($compactMarker)) { $append += "`r`n`r`n" + ($compactBlock -replace "`r?`n", "`r`n"); $what += 'указания для сжатия контекста' }
+    if (-not $append) {
+        Write-Host '  CLAUDE.md: всё уже подключено'
+    } elseif ($PSCmdlet.ShouldProcess($claudeMd, 'Дописать: ' + ($what -join ', '))) {
+        [IO.File]::WriteAllText($claudeMd, $existing.TrimEnd() + $append + "`r`n", $utf8NoBom)
+        Write-Host ('  CLAUDE.md: дописано — ' + ($what -join ', ') + ' (остальное содержимое не тронуто)')
     }
 }
 

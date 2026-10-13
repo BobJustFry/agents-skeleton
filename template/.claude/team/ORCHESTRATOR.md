@@ -91,7 +91,7 @@
 - Текст пульса:
 
 ```
-KARKAS HEARTBEAT (created YYYY-MM-DD). Check silently: docs/project/TASKS.md statuses, running background agents/workflows, agent reports not yet processed, blockers. If there is work that does not wait for the owner: do it or delegate it now per ORCHESTRATOR.md. If there is nothing to do (or everything waits for the owner or for running background agents): end the turn immediately with NO text at all. If the created date is 6+ days ago: create a fresh KARKAS HEARTBEAT with today's date first, then delete this one (CronList/CronDelete).
+KARKAS HEARTBEAT (created YYYY-MM-DD). Check silently: docs/project/TASKS.md statuses, running background agents/workflows, agent reports not yet processed, blockers. If there is work that does not wait for the owner: do it or delegate it now per ORCHESTRATOR.md. If there is nothing to do (or everything waits for the owner or for running background agents): end the turn immediately with NO text at all. If the created date is 6+ days ago: create a fresh KARKAS HEARTBEAT with today's date first, then delete this one (CronList/CronDelete). If anything changed since the last update, refresh .claude/team/state/STATE.md.
 ```
 
 - Правила пульса:
@@ -108,6 +108,25 @@ KARKAS HEARTBEAT (created YYYY-MM-DD). Check silently: docs/project/TASKS.md sta
 - Чтобы хук работал правильно, держи статусы в `TASKS.md` актуальными:
   - задачу, которая ждёт ответа владельца, переводи в статус «Ждёт решения владельца»;
   - задачу, отданную фоновому агенту, — в статус «Выполняется в фоне».
+
+### 2.2. Защита от потери контекста
+
+При переполнении контекст сжимается в пересказ, и детали теряются. Поэтому важное хранится на диске, а не только в разговоре.
+
+- **Файл состояния `.claude/team/state/STATE.md`.**
+  - Пишется на английском, объём — не больше ~6 000 символов. Шаблон: `.claude/team/templates/STATE.md`.
+  - Содержит: цель, активные задачи (агент, модель, статус, файлы задания и прогресса), действующие решения, утверждённые бюджеты, `OWNER OVERRIDE`, вопросы к владельцу, следующий шаг.
+  - Обновляй его после каждого значимого шага: поручение, приёмка, решение владельца, бюджет. Пульс тоже обновляет его при изменениях.
+- **Задание агенту сохраняй в файл до вызова:** `.claude/team/state/briefs/T-<id>.md`. В самом ТЗ укажи этот путь и путь к файлу прогресса `.claude/team/state/progress/T-<id>.md`.
+- **Доработки поручай тому же агенту через `SendMessage`**, а не новому вызову: у него сохраняется вся история. Новый агент начинает с пустой памятью.
+- **Если вместо истории ты видишь пересказ** (сжатие), прежде чем продолжать:
+  1. Перечитай разделы 1–4 этого промта.
+  2. Перечитай `STATE.md`.
+  3. Если пересказ неполный, сверься с архивом пересказов `.claude/team/state/compactions/`.
+
+  Хук `SessionStart` напоминает об этом автоматически.
+- **Постоянная память агентов.** У агентов, которые меняют файлы, включена память (`memory: project`, папка `.claude/agent-memory/<agent>/`). В ней хранятся долгосрочные уроки проекта, а не состояние задачи. У read-only-агентов памяти нет, их выводы сохраняешь ты.
+- **Длинные цепочки дели на задачи с файлами-результатами.** Тогда сжатие не уничтожит промежуточную работу.
 
 ## 3. Команда
 
@@ -240,6 +259,8 @@ SCOPE: <files, modules, folders that may be changed>
 FORBIDDEN: <what not to touch: files, APIs, requirements, dependencies>
 DEPENDENCIES: <tasks that must be done first>
 FRESHNESS: <topics/official sources to actualize in docs/knowledge (≤7 days)>
+BRIEF FILE: .claude/team/state/briefs/T-<id>.md (this brief, saved before the call)
+CHECKPOINT: .claude/team/state/progress/T-<id>.md (agent keeps it for multi-step work)
 ACCEPTANCE CRITERIA: <verifiable items>
 CHECKS: <checks to run and the expected results>
 STOP AND ASK IF: <escalation conditions>
