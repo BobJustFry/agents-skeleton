@@ -2,14 +2,30 @@
 # and makes sure the 5-minute heartbeat exists in the session.
 # Rules: never loops (respects stop_hook_active), never blocks while background agents run.
 $ErrorActionPreference = 'SilentlyContinue'
+# Project root = the folder of the CURRENT session (worktree-safe): walk up from cwd to the folder
+# that contains .claude\team\ORCHESTRATOR.md. CLAUDE_PROJECT_DIR points to the main checkout even
+# inside a worktree, so it is only a fallback.
+function Get-KarkasRoot($hookInput) {
+    if ($hookInput -and $hookInput.cwd) { $d = [string]$hookInput.cwd }
+    elseif ($env:CLAUDE_PROJECT_DIR) { return $env:CLAUDE_PROJECT_DIR }
+    else { $d = (Get-Location).Path }
+    $start = $d
+    while ($d) {
+        if (Test-Path -LiteralPath (Join-Path $d '.claude\team\ORCHESTRATOR.md')) { return $d }
+        $parent = Split-Path -Parent $d
+        if (-not $parent -or $parent -eq $d) { break }
+        $d = $parent
+    }
+    if ($env:CLAUDE_PROJECT_DIR) { return $env:CLAUDE_PROJECT_DIR }
+    return $start
+}
 [Console]::OutputEncoding = New-Object System.Text.UTF8Encoding($false)
 
 $raw = [Console]::In.ReadToEnd()
 try { $in = $raw | ConvertFrom-Json } catch { exit 0 }
 if ($in.stop_hook_active) { exit 0 }
 
-$root = $env:CLAUDE_PROJECT_DIR
-if (-not $root) { $root = $in.cwd }
+$root = Get-KarkasRoot $in
 $reasons = @()
 
 # 1. Heartbeat must exist (only checkable when the harness passes session_crons)

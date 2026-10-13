@@ -1,10 +1,26 @@
 ﻿# Karkas: PostCompact hook. Archives every compaction summary so nothing is lost for good.
 # Keeps the latest 30 summaries in .claude/team/state/compactions/.
 $ErrorActionPreference = 'SilentlyContinue'
+# Project root = the folder of the CURRENT session (worktree-safe): walk up from cwd to the folder
+# that contains .claude\team\ORCHESTRATOR.md. CLAUDE_PROJECT_DIR points to the main checkout even
+# inside a worktree, so it is only a fallback.
+function Get-KarkasRoot($hookInput) {
+    if ($hookInput -and $hookInput.cwd) { $d = [string]$hookInput.cwd }
+    elseif ($env:CLAUDE_PROJECT_DIR) { return $env:CLAUDE_PROJECT_DIR }
+    else { $d = (Get-Location).Path }
+    $start = $d
+    while ($d) {
+        if (Test-Path -LiteralPath (Join-Path $d '.claude\team\ORCHESTRATOR.md')) { return $d }
+        $parent = Split-Path -Parent $d
+        if (-not $parent -or $parent -eq $d) { break }
+        $d = $parent
+    }
+    if ($env:CLAUDE_PROJECT_DIR) { return $env:CLAUDE_PROJECT_DIR }
+    return $start
+}
 $raw = [Console]::In.ReadToEnd()
 try { $in = $raw | ConvertFrom-Json } catch { exit 0 }
-$root = $env:CLAUDE_PROJECT_DIR
-if (-not $root) { $root = $in.cwd }
+$root = Get-KarkasRoot $in
 if (-not $root) { exit 0 }
 
 $dir = Join-Path $root '.claude\team\state\compactions'

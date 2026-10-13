@@ -3,12 +3,28 @@
 # - after compaction / resume / clear: re-injects key rules and the saved state (anti-amnesia).
 # Output is phrased as facts (hook context is capped at 10,000 chars per string).
 $ErrorActionPreference = 'SilentlyContinue'
+# Project root = the folder of the CURRENT session (worktree-safe): walk up from cwd to the folder
+# that contains .claude\team\ORCHESTRATOR.md. CLAUDE_PROJECT_DIR points to the main checkout even
+# inside a worktree, so it is only a fallback.
+function Get-KarkasRoot($hookInput) {
+    if ($hookInput -and $hookInput.cwd) { $d = [string]$hookInput.cwd }
+    elseif ($env:CLAUDE_PROJECT_DIR) { return $env:CLAUDE_PROJECT_DIR }
+    else { $d = (Get-Location).Path }
+    $start = $d
+    while ($d) {
+        if (Test-Path -LiteralPath (Join-Path $d '.claude\team\ORCHESTRATOR.md')) { return $d }
+        $parent = Split-Path -Parent $d
+        if (-not $parent -or $parent -eq $d) { break }
+        $d = $parent
+    }
+    if ($env:CLAUDE_PROJECT_DIR) { return $env:CLAUDE_PROJECT_DIR }
+    return $start
+}
 [Console]::OutputEncoding = New-Object System.Text.UTF8Encoding($false)
 $raw = [Console]::In.ReadToEnd()
 try { $in = $raw | ConvertFrom-Json } catch { $in = $null }
 $source = if ($in -and $in.source) { [string]$in.source } else { 'startup' }
-$root = $env:CLAUDE_PROJECT_DIR
-if (-not $root -and $in) { $root = $in.cwd }
+$root = Get-KarkasRoot $in
 $today = Get-Date -Format 'yyyy-MM-dd'
 
 $parts = @()
