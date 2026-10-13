@@ -2,6 +2,12 @@
 # and makes sure the 5-minute heartbeat exists in the session.
 # Rules: never loops (respects stop_hook_active), never blocks while background agents run.
 $ErrorActionPreference = 'SilentlyContinue'
+# stdin from Claude Code is UTF-8; PowerShell 5.1 would decode it with the OEM code page (866) and break Cyrillic paths.
+function Read-HookInput {
+    $ms = New-Object System.IO.MemoryStream
+    [Console]::OpenStandardInput().CopyTo($ms)
+    return [System.Text.Encoding]::UTF8.GetString($ms.ToArray()).TrimStart([char]0xFEFF)
+}
 # Project root = the folder of the CURRENT session (worktree-safe): walk up from cwd to the folder
 # that contains .claude\team\ORCHESTRATOR.md. CLAUDE_PROJECT_DIR points to the main checkout even
 # inside a worktree, so it is only a fallback.
@@ -21,7 +27,7 @@ function Get-KarkasRoot($hookInput) {
 }
 [Console]::OutputEncoding = New-Object System.Text.UTF8Encoding($false)
 
-$raw = [Console]::In.ReadToEnd()
+$raw = Read-HookInput
 try { $in = $raw | ConvertFrom-Json } catch { exit 0 }
 if ($in.stop_hook_active) { exit 0 }
 
@@ -37,7 +43,8 @@ if ($in.PSObject.Properties.Name -contains 'session_crons') {
 }
 
 # 2. Unblocked tasks in docs/project/TASKS.md (skip while background agents are running)
-$bg = @($in.background_tasks).Where({ $_ -ne $null }).Count
+# Only background agents/workflows suspend the TASKS check; shell tasks (dev server, tail, monitors) do not.
+$bg = @(@($in.background_tasks) | Where-Object { $_ -and ((ConvertTo-Json -InputObject $_ -Depth 4 -Compress) -match '(?i)agent|workflow') }).Count
 $tasksFile = Join-Path $root 'docs\project\TASKS.md'
 if ($bg -eq 0 -and (Test-Path -LiteralPath $tasksFile)) {
     $activeStatuses = 'Готова к выполнению|Выполняется|Требует доработки|Ожидает проверки'

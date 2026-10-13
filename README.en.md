@@ -114,7 +114,7 @@ After installing, open the project folder in Claude Code and describe what you n
 - **When something is unknown:** official documentation first, then practical experience from the internet, and only then a question to you.
 - **Money** is spent only within a budget you have approved, for the whole task or for a stage.
 - **They argue with you.** If you are wrong, neither the orchestrator nor the agents will agree. A disputed decision is carried out only after you confirm you accept the risks with your personal code word. The code word lives only in your private settings in `~/.claude/CLAUDE.md`; it is not part of the kit.
-- **Work does not stall.** While the session is open, the orchestrator checks every 5 minutes whether there is work to do. When there is none, the check is silent. If the orchestrator tries to stop while tasks are still unfinished, a hook sends it back to work.
+- **Work does not stall.** While the session is open, the orchestrator checks every 5 minutes whether there is work to do. When there is none, the check replies with a single `·` (the app does not allow a fully empty reply). If the orchestrator tries to stop while tasks are still unfinished, a hook sends it back to work.
 - **Protection against context loss.** When the context overflows it is compacted and details are lost. So the orchestrator keeps a state file on disk (tasks, decisions, budgets, next step), and each agent keeps its brief and progress files. After compaction a hook restores the rules and the state, every summary is archived, and agents have persistent per-project memory.
 - **Nobody works blind.** A result is accepted only after it has been checked as it actually is:
   - UI and images: screenshots the agent opened and described;
@@ -137,6 +137,7 @@ The models in the tables are defaults. For each task the orchestrator picks the 
 | `template/.claude/team/templates/` | templates for project documents and the knowledge base |
 | `template/.claude/team/hooks/`, `template/.claude/settings.json` | continuous work and context-loss protection |
 | `install.cmd`, `install.ps1` | installation and updates |
+| `tests/hooks_test.py` | hook tests: Cyrillic paths, worktrees, stop guard, restore after compaction |
 
 ## Model review
 

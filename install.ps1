@@ -107,8 +107,16 @@ if (-not (Test-Path -LiteralPath $dstSettings)) {
         $script = ([regex]::Match((ConvertTo-Json -InputObject $ours -Depth 16 -Compress), '[\w-]+\.ps1')).Value
         if ($dst.hooks.PSObject.Properties.Name -contains $ev) {
             $existingEv = ConvertTo-Json -InputObject @($dst.hooks.$ev) -Depth 16 -Compress
-            if ($script -and $existingEv.Contains($script)) { continue }
-            $dst.hooks.$ev = @(@($dst.hooks.$ev) + $ours)
+            if ($script -and $existingEv.Contains($script)) {
+                if (-not $Update) { continue }
+                # -Update: replace only our own entry with the current template version; foreign hooks stay untouched
+                $others = @(@($dst.hooks.$ev) | Where-Object { -not (ConvertTo-Json -InputObject $_ -Depth 16 -Compress).Contains($script) })
+                $newEv = @($others + $ours)
+                if ((ConvertTo-Json -InputObject $newEv -Depth 16 -Compress) -eq $existingEv) { continue }
+                $dst.hooks.$ev = $newEv
+            } else {
+                $dst.hooks.$ev = @(@($dst.hooks.$ev) + $ours)
+            }
         } else {
             $dst.hooks | Add-Member -NotePropertyName $ev -NotePropertyValue $ours
         }

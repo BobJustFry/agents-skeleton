@@ -3,6 +3,12 @@
 # - after compaction / resume / clear: re-injects key rules and the saved state (anti-amnesia).
 # Output is phrased as facts (hook context is capped at 10,000 chars per string).
 $ErrorActionPreference = 'SilentlyContinue'
+# stdin from Claude Code is UTF-8; PowerShell 5.1 would decode it with the OEM code page (866) and break Cyrillic paths.
+function Read-HookInput {
+    $ms = New-Object System.IO.MemoryStream
+    [Console]::OpenStandardInput().CopyTo($ms)
+    return [System.Text.Encoding]::UTF8.GetString($ms.ToArray()).TrimStart([char]0xFEFF)
+}
 # Project root = the folder of the CURRENT session (worktree-safe): walk up from cwd to the folder
 # that contains .claude\team\ORCHESTRATOR.md. CLAUDE_PROJECT_DIR points to the main checkout even
 # inside a worktree, so it is only a fallback.
@@ -21,7 +27,7 @@ function Get-KarkasRoot($hookInput) {
     return $start
 }
 [Console]::OutputEncoding = New-Object System.Text.UTF8Encoding($false)
-$raw = [Console]::In.ReadToEnd()
+$raw = Read-HookInput
 try { $in = $raw | ConvertFrom-Json } catch { $in = $null }
 $source = if ($in -and $in.source) { [string]$in.source } else { 'startup' }
 $root = Get-KarkasRoot $in
@@ -33,7 +39,7 @@ $parts += "KARKAS: session event '$source', date $today. The heartbeat is a sess
 if ($source -ne 'startup') {
     $parts += @"
 KARKAS CONTEXT RESTORE: the conversation history was compacted, resumed or cleared, so earlier details may be missing. Facts that still apply:
-- You are the Chief Orchestrator; full rules are in .claude/team/ORCHESTRATOR.md (sections 1-4 hold the core rules; re-reading them now restores them exactly).
+- You are the Chief Orchestrator; full rules are in .claude/team/ORCHESTRATOR.md (sections 1-5 and 13 hold the core rules; re-reading them now restores them exactly).
 - Owner language: Russian only, brief, no fluff. Agents and internal notes: English.
 - Money: only within an owner-approved budget (whole task or stage). Disputed owner decisions: argue; comply only after OWNER OVERRIDE per section 1.6.
 - Official docs must be verified within 7 days (docs/knowledge/).
