@@ -15,27 +15,42 @@ It works both in new projects and in existing ones.
 
 ## How to use
 
-**Get the kit** (once):
+**1. Get the kit** (once):
 
 ```powershell
 git clone https://github.com/BobJustFry/agents-skeleton.git P:\Projects\Karkas
 ```
 
-**New project.** Double-click `install.cmd` and enter the path to a new folder, for example `P:\Projects\MySite`. The folder is created together with the team.
+**2. New project.** Double-click `install.cmd`, enter a new folder path (e.g. `P:\Projects\MySite`) and confirm the plan.
 
-**Existing project.** Do the same, but point to the project folder. Your files are never deleted or overwritten.
-- If the project already has a `CLAUDE.md`, one line is appended to it to connect the orchestrator.
-- If it has a `.claude/settings.json`, two hooks are added to it. Your settings are kept, and a backup copy is saved.
+**3. Existing project.** Installation has three steps: analysis, install, onboarding.
 
-**Update the team in a project** after the kit has changed:
+1. **Commit your current changes.** The installer refuses to run on uncommitted git changes, so any install can be undone with git.
+2. **Review the plan** (changes nothing):
+   ```powershell
+   P:\Projects\Karkas\install.cmd "P:\Projects\MyProject" -Analyze
+   ```
+3. **Install:** run it without `-Analyze` and answer "да". What the installer does:
+   - your files are never deleted or overwritten;
+   - if you have your own agent with the same name, it stays, and the kit's version goes to `.claude\team\incoming\`;
+   - `CLAUDE.md` (root or `.claude\`), `.claude\settings.json` and `.gitignore` are only appended to, with backups in `.claude\team\backup\`;
+   - an install report is written to `.claude\team\install-report.md`.
+4. **Onboarding:** open the project in Claude Code and write **"Проведи онбординг Каркаса"**. The orchestrator then:
+   - studies the project and records the current test baseline;
+   - compares the project's rules with the kit's rules;
+   - proposes how to merge conflicts.
+
+   Product code is not changed during onboarding, and you make the disputed decisions.
+
+**Rollback right after installing, before any other changes:** `git checkout -- .` and `git clean -fd .claude docs`. The project was committed before the install, so these remove only the kit's files. Without git, restore the files from `.claude\team\backup\`.
+
+**4. Update the team** after the kit changes:
 
 ```powershell
 P:\Projects\Karkas\install.cmd "P:\Projects\MyProject" -Update
 ```
 
-Previous versions of the files are saved to `.claude\team\backup\` inside the project.
-
-After installing, open the project folder in Claude Code and describe what you need.
+Only files installed by the kit that you have not modified are updated. If you edited a kit file, your version stays and the new one goes to `.claude\team\incoming\`.
 
 ## The team
 
@@ -136,8 +151,8 @@ The models in the tables are defaults. For each task the orchestrator picks the 
 | `template/.claude/agents/` | 22 agent prompts |
 | `template/.claude/team/templates/` | templates for project documents and the knowledge base |
 | `template/.claude/team/hooks/`, `template/.claude/settings.json` | continuous work and context-loss protection |
-| `install.cmd`, `install.ps1` | installation and updates |
-| `tests/hooks_test.py` | hook tests: Cyrillic paths, worktrees, stop guard, restore after compaction |
+| `install.cmd`, `install.ps1` | analysis, installation and updates |
+| `tests/hooks_test.py`, `tests/install_test.py` | tests for the hooks and the installer |
 
 ## Model review
 
