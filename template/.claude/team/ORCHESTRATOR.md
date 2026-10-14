@@ -81,8 +81,9 @@
 
 Работа не должна вставать, пока есть незаблокированные задачи. Для этого есть два механизма.
 
-**Пульс каждые 5 минут.**
-- При старте сессии создай задачу планировщика. Хук `SessionStart` напомнит об этом.
+**Пульс каждые 5 минут — только пока есть работа.**
+- Создавай задачу планировщика, когда в `docs/project/TASKS.md` появляются задачи в активных статусах: «Готова к выполнению», «Выполняется», «Требует доработки», «Ожидает проверки». Хуки `SessionStart` и `Stop` напомнят об этом.
+- Когда работы не осталось, пульс удаляет себя сам. В простое пульса нет, и в чате ничего не появляется.
   - Инструмент: `CronCreate`.
   - Расписание: `2-59/5 * * * *`.
   - Параметр: `recurring: true`.
@@ -91,11 +92,11 @@
 - Текст пульса:
 
 ```
-KARKAS HEARTBEAT (created YYYY-MM-DD). Check silently: docs/project/TASKS.md statuses, running background agents/workflows, agent reports not yet processed, blockers. If there is work that does not wait for the owner: do it or delegate it now per ORCHESTRATOR.md. Before replying, move every task that cannot progress now to 'Ждёт решения владельца', 'Выполняется в фоне' or 'Заблокирована'. If there is nothing to do (or everything waits for the owner or for running background agents): reply with exactly one character `·` and nothing else (the app requires a visible reply; never ask the owner anything from a heartbeat). Run `powershell -NoProfile -ExecutionPolicy Bypass -File .claude/team/hooks/update-check.ps1`; if it prints a KARKAS UPDATE line, tell the owner once in Russian (this replaces the `·`). If the created date is 6+ days ago: create a fresh KARKAS HEARTBEAT with today's date first, then delete this one (CronList/CronDelete). If anything changed since the last update, refresh .claude/team/state/STATE.md.
+KARKAS HEARTBEAT (created YYYY-MM-DD). Check silently: docs/project/TASKS.md statuses, running background agents/workflows, agent reports not yet processed, blockers. If there is work that does not wait for the owner: do it or delegate it now per ORCHESTRATOR.md. Before replying, move every task that cannot progress now to 'Ждёт решения владельца', 'Выполняется в фоне' or 'Заблокирована'. If no task in docs/project/TASKS.md has an active status any more: delete this heartbeat (CronList → CronDelete) and reply `·`. If there are active tasks but all of them wait (for the owner or for running background agents): reply with exactly one character `·` and nothing else (the app requires a visible reply; never ask the owner anything from a heartbeat). If the created date is 6+ days ago: create a fresh KARKAS HEARTBEAT with today's date first, then delete this one (CronList/CronDelete). If anything changed since the last update, refresh .claude/team/state/STATE.md.
 ```
 
 - Правила пульса:
-  - Если работы нет, пульс отвечает одним символом «·». Совсем без ответа нельзя: приложение требует видимый ответ. Вопросов владельцу пульс не задаёт.
+  - Если задачи есть, но все ждут владельца или фоновых агентов, пульс отвечает одним символом «·»: совсем без ответа приложение не принимает. Если активных задач не осталось, пульс удаляет себя. Вопросов владельцу пульс не задаёт.
   - Если работа есть, выполняй её и отчитывайся владельцу как обычно: по-русски, кратко.
   - Пульс живёт, пока открыта сессия Claude Code. Через 7 дней задача планировщика истекает, поэтому пульс обновляет себя сам.
 
@@ -107,7 +108,7 @@ KARKAS HEARTBEAT (created YYYY-MM-DD). Check silently: docs/project/TASKS.md sta
 
 **Защита от преждевременной остановки** (хук `Stop`, `.claude/team/hooks/stop-guard.ps1`).
 - Когда ты заканчиваешь ход, хук проверяет две вещи:
-  - есть ли в сессии пульс;
+  - есть ли в сессии пульс, если есть активные задачи;
   - есть ли в `docs/project/TASKS.md` задачи в статусах «Готова к выполнению», «Выполняется», «Требует доработки», «Ожидает проверки».
 - Если что-то не так, хук один раз возвращает тебя к работе.
 - Хук не мешает, пока работают фоновые агенты, и никогда не зацикливается.
@@ -116,10 +117,9 @@ KARKAS HEARTBEAT (created YYYY-MM-DD). Check silently: docs/project/TASKS.md sta
   - задачу, отданную фоновому агенту, — в статус «Выполняется в фоне».
 
 ### 2.2. Обновления каркаса
-- Скрипт `.claude/team/hooks/update-check.ps1` проверяет на GitHub новую версию каркаса, не чаще раза в 15 минут, а между проверками берёт результат из кэша. Запускают его:
+- Хук `.claude/team/hooks/update-check.ps1` проверяет на GitHub новую версию каркаса, не чаще раза в 15 минут, а между проверками берёт результат из кэша. Проверка идёт молча, в чате её не видно. Запускают его:
   - старт сессии;
-  - каждое сообщение владельца;
-  - каждый пульс.
+  - каждое сообщение владельца.
 - Если вышла новая версия, в контексте появится `KARKAS UPDATE`. Один раз кратко скажи владельцу по-русски: «Вышел каркас X (у проекта Y), обновить?».
 - Обновляй только после «да» и по шагам из README каркаса: скачать или обновить каркас → анализ (`-Analyze`) → план владельцу → `-Update -Yes` → пересказ отчёта. Новые агенты и хуки заработают в новой сессии, скажи об этом владельцу.
 - Свои правки владельца в файлах каркаса при обновлении не теряются: такие файлы не перезаписываются, а новая версия ложится в `.claude/team/incoming/` для слияния.

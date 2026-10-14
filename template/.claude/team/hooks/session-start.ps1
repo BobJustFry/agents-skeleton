@@ -27,6 +27,14 @@ function Get-KarkasRoot($hookInput) {
     return $start
 }
 [Console]::OutputEncoding = New-Object System.Text.UTF8Encoding($false)
+function Get-ActiveTaskIds([string]$root) {
+    $f = Join-Path $root 'docs\project\TASKS.md'
+    if (-not (Test-Path -LiteralPath $f)) { return @() }
+    $active = 'Готова к выполнению|Выполняется|Требует доработки|Ожидает проверки'
+    return @(Get-Content -LiteralPath $f -Encoding UTF8 |
+        Where-Object { $_ -match '^\|\s*T-\d+' -and $_ -match "\|\s*($active)\s*\|" } |
+        ForEach-Object { ($_ -split '\|')[1].Trim() })
+}
 $raw = Read-HookInput
 try { $in = $raw | ConvertFrom-Json } catch { $in = $null }
 $source = if ($in -and $in.source) { [string]$in.source } else { 'startup' }
@@ -36,7 +44,12 @@ $today = Get-Date -Format 'yyyy-MM-dd'
 $parts = @()
 $heartbeatOff = Test-Path -LiteralPath (Join-Path $root '.claude\team\state\heartbeat-off')
 if ($heartbeatOff) { $parts += "KARKAS: session event '$source', date $today. The heartbeat is switched off for this project (.claude/team/state/heartbeat-off exists); do not create it." } else {
-$parts += "KARKAS: session event '$source', date $today. The heartbeat is a session cron named 'KARKAS HEARTBEAT' (CronCreate '2-59/5 * * * *', recurring, prompt text in ORCHESTRATOR.md section 2.1, created date $today); if CronList does not show it, it needs to be created silently."
+$ids = Get-ActiveTaskIds $root
+if ($ids.Count -gt 0) {
+    $parts += "KARKAS: session event '$source', date $today. Active tasks: $($ids -join ', '). While there is active work the heartbeat is needed: a session cron named 'KARKAS HEARTBEAT' (CronCreate '2-59/5 * * * *', recurring, prompt text in ORCHESTRATOR.md section 2.1, created date $today); if CronList does not show it, it needs to be created silently."
+} else {
+    $parts += "KARKAS: session event '$source', date $today. No active tasks, so no heartbeat is needed now; it is created when active work appears (ORCHESTRATOR.md section 2.1) and removes itself when the work is done."
+}
 }
 
 if ($source -ne 'startup') {

@@ -50,6 +50,13 @@ results["heartbeat-off: stop does not demand heartbeat"] = "HEARTBEAT" not in ru
 results["heartbeat-off: session-start says switched off"] = "switched off" in run("session-start.ps1", {"source": "startup", "cwd": str(T)})
 (T / ".claude/team/state/heartbeat-off").unlink()
 
+# quiet heartbeat: without active tasks no heartbeat is demanded and none is suggested
+(T / "docs/project/TASKS.md").write_text("| T-1 | тест | x | - | - | Принята | ok |" + chr(10), encoding="utf-8")
+results["quiet: no active tasks -> stop does not demand heartbeat"] = run("stop-guard.ps1", dict(stop, session_crons=[])) == ""
+results["quiet: no active tasks -> session-start says not needed"] = "no heartbeat is needed" in run("session-start.ps1", {"source": "startup", "cwd": str(T)})
+(T / "docs/project/TASKS.md").write_text("| T-1 | тест | x | - | - | Готова к выполнению | ok |" + chr(10), encoding="utf-8")
+results["quiet: active tasks -> session-start asks for heartbeat"] = "needs to be created" in run("session-start.ps1", {"source": "startup", "cwd": str(T)})
+
 # update-check: newer version on "GitHub" (local file URL), 15-minute cache, notify once
 vfile = T.parent / "VERSION"; vfile.write_text("9.9.9" + chr(10), encoding="utf-8")
 (T / ".claude/team/kit-manifest.json").write_text(json.dumps({"version": "0.1.0", "repo": "https://github.com/x/y", "files": {}}), encoding="utf-8")
