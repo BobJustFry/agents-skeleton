@@ -2,7 +2,7 @@
 
 # Karkas — a ready-made AI team for any project
 
-**Version 0.1.17** · build number = commit count (`VERSION` file)
+**Version 0.1.18** · build number = commit count (`VERSION` file)
 
 Install Karkas into a project folder, and Claude Code in that folder becomes the **Chief Orchestrator**. It works out the task, plans it, hands the work to 22 specialists, checks the results and reports back to you.
 
@@ -174,6 +174,7 @@ Only files installed by the kit that you have not modified are updated. If you e
   - code: an actual run.
 
   If something cannot be checked, the task is marked unverified, not done.
+- **Paid calls only after studying the docs.** Before spending money on a generation (images, video, voice, etc.), an agent must study the official documentation of that exact model and record it in the project's knowledge base. Without a fresh record a hook blocks the paid call, and every allowed call is logged to `.claude	eam\state\paid-calls.log`. Free actions (balance, model list, cost estimate) are never blocked. Project-specific paid tools can be added in `.claude	eam\paid-tools.local.json`.
 - **Professional tools only.** In production, tools that distort video, images, audio, UI, text or code are forbidden. The result of every processing step is compared with the source.
 
 The models in the tables are defaults. For each task the orchestrator picks the model and effort level itself, following section 13 of its prompt.
@@ -188,7 +189,7 @@ The models in the tables are defaults. For each task the orchestrator picks the 
 | `template/.claude/team/templates/` | templates for project documents and the knowledge base |
 | `template/.claude/team/hooks/`, `template/.claude/settings.json` | continuous work and context-loss protection |
 | `install.cmd`, `install.ps1` | analysis, installation and updates |
-| `tests/hooks_test.py`, `tests/install_test.py` | tests for the hooks and the installer |
+| `tests/hooks_test.py`, `tests/install_test.py`, `tests/paid_guard_test.py` | tests for the hooks, the installer and the paid-call guard |
 
 ## Model review
 

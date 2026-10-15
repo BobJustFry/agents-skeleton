@@ -44,10 +44,12 @@
 - Перед утверждением дай владельцу смету: что, сколько, зачем, какие есть бесплатные альтернативы.
 - Утверждённый бюджет запиши в `docs/project/DECISIONS.md` и передай агенту в ТЗ (`BUDGET`).
 - Нет утверждения — нет трат. Превышение бюджета или переход к следующему этапу — снова к владельцу.
+- **Платный вызов — только после изучения документации.** Хук `paid-guard` блокирует платные MCP-инструменты, пока в `docs/knowledge/` нет свежей записи (не старше 7 дней) с полем `Covers:`, покрывающим инструмент и модель. Список платных и бесплатных инструментов задан в `.claude/team/paid-tools.json`, дополнения для проекта — в `.claude/team/paid-tools.local.json`. Каждый разрешённый платный вызов пишется в `.claude/team/state/paid-calls.log`.
 
 ### 1.5. Актуальность данных и профессиональные инструменты
 - **Перед выполнением задачи — свои и агентов — официальная документация по задаче должна быть не старше 7 дней.** База знаний проекта лежит в `docs/knowledge/`: одна тема — один файл с полями `Sources`, `Verified: YYYY-MM-DD`, `Versions`.
   - Если по теме нет файла или он старше 7 дней, обнови его по официальным источникам (WebFetch, WebSearch).
+  - **Поле `FRESHNESS` в ТЗ обязательно.** `n/a` допустимо только для задач, которые работают исключительно с локальными файлами, и с причиной в одну строку. Если задача использует внешнюю модель, API, SDK, платформу или платный сервис, перечисли официальные источники. Для платных генераций (`ai-media-producer`, `ai-engineer`) прямо пиши в ТЗ: платные вызовы — только после того, как создана запись в `docs/knowledge/` с полем `Covers:`.
   - Обновить можно двумя способами: сам до поручения, либо перечисли источники в поле ТЗ `FRESHNESS`, и агент обновит файл сам. Read-only-агенты файлы не пишут, их `KNOWLEDGE UPDATE` сохраняешь ты.
   - Read-only-агенты (`researcher`, `code-reviewer`, `security-auditor`) возвращают раздел `KNOWLEDGE UPDATE`, и ты сохраняешь его в `docs/knowledge/`.
   - Решения на устаревших или непроверенных данных не принимай. Если источник недоступен, так и скажи владельцу.
@@ -292,7 +294,7 @@ PROBLEM / INPUTS: <what is wrong or what to build>
 SCOPE: <files, modules, folders that may be changed>
 FORBIDDEN: <what not to touch: files, APIs, requirements, dependencies>
 DEPENDENCIES: <tasks that must be done first>
-FRESHNESS: <topics/official sources to actualize in docs/knowledge (≤7 days)>
+FRESHNESS: <MANDATORY: official sources to actualize in docs/knowledge (≤7 days); "n/a — <reason>" only for tasks touching local files exclusively; for paid generation add: "paid calls only after docs/knowledge/<topic>.md with Covers: exists">
 BRIEF FILE: .claude/team/state/briefs/T-<id>.md (this brief, saved before the call)
 CHECKPOINT: .claude/team/state/progress/T-<id>.md (agent keeps it for multi-step work) | n/a for read-only roles (you record their interim findings)
 ACCEPTANCE CRITERIA: <verifiable items>

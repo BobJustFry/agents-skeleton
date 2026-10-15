@@ -1,0 +1,39 @@
+{
+  "_comment": "Karkas paid-guard config. Patterns are case-insensitive regexes matched against the MCP tool's short name (the part after the last '__'). 'free' is checked first and is never blocked. Project-specific additions go to .claude/team/paid-tools.local.json (same keys), which the kit installer never overwrites.",
+  "freshness_days": 7,
+  "free": [
+    "balance",
+    "models?_explore",
+    "get_cost",
+    "quote",
+    "^list_",
+    "^show_",
+    "^get_",
+    "status",
+    "jobs_wait",
+    "job_display",
+    "_options$",
+    "_presets?$",
+    "_settings$",
+    "transactions",
+    "^media_confirm$",
+    "^media_upload",
+    "^media_import"
+  ],
+  "paid": [
+    "generate",
+    "upscale",
+    "remove_background",
+    "create_voice",
+    "voice_change",
+    "dubbing",
+    "execute_preset",
+    "motion_control",
+    "reframe",
+    "outpaint",
+    "build_ai_influencer",
+    "shorts_studio_create",
+    "video_analysis_create",
+    "virality_predictor"
+  ]
+}

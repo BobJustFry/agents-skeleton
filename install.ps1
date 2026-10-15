@@ -48,6 +48,7 @@ $gitignoreLines = @(
     '.claude/team/incoming/',
     '.claude/team/kit-source.txt',
     '.claude/team/state/update-check.json',
+    '.claude/team/state/paid-calls.log',
     '.claude/team/state/screenshots/',
     '.claude/team/state/compactions/',
     '.claude/agent-memory-local/'

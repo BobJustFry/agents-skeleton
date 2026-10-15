@@ -5,6 +5,7 @@ Sources:
 - <official URL 2>
 Verified: YYYY-MM-DD
 Versions: <product/library/API versions or law edition this applies to>
+Covers: <regex of tool names and models this file documents, e.g. generate_image|nano_banana — required for paid tools: the paid-guard hook allows a paid call only if Covers matches the tool and its model>
 Verified by: <agent name>
 
 > Re-verify against the sources if `Verified` is older than 7 days before using this file.
