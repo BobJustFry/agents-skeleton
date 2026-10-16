@@ -34,6 +34,8 @@ results["no -Yes, no answer: cancelled, nothing created"] = code == 1 and not ne
 code, out = inst(new, "-Yes")
 agents = list((new / ".claude/agents").glob("*.md"))
 results["new: 22 agents installed"] = code == 0 and len(agents) == 22
+results["new: settings has default model and auto-compact env"] = (lambda s: s.get("model") == "sonnet" and s["env"]["CLAUDE_CODE_AUTO_COMPACT_WINDOW"] == "250000")(json.loads((new / ".claude/settings.json").read_text(encoding="utf-8")))
+results["new: orchestrator reference files installed"] = all((new / ".claude/team/reference" / f).exists() for f in ["TEAM.md", "MODEL_POLICY.md", "CONTINUOUS.md", "DOCS.md", "ONBOARDING.md"])
 results["new: manifest + report + gitignore"] = all((new / p).exists() for p in [".claude/team/kit-manifest.json", ".claude/team/install-report.md", ".gitignore", "CLAUDE.md", ".claude/settings.json"])
 
 # 4. existing git project, dirty -> stop, nothing changed
@@ -64,6 +66,7 @@ cm = (ex / ".claude/CLAUDE.md").read_text(encoding="utf-8")
 results["existing: .claude/CLAUDE.md appended with @team import, root not created"] = "@team/ORCHESTRATOR.md" in cm and "Use pnpm." in cm and not (ex / "CLAUDE.md").exists()
 st = json.loads((ex / ".claude/settings.json").read_text(encoding="utf-8"))
 results["existing: settings merged, own permission and hook kept"] = st["permissions"]["allow"] == ["Bash(pnpm test)"] and len(st["hooks"]["Stop"]) == 2 and "PostCompact" in st["hooks"]
+results["existing: missing model and env entries added"] = st.get("model") == "sonnet" and st.get("env", {}).get("CLAUDE_CODE_AUTO_COMPACT_WINDOW") == "250000"
 gi = (ex / ".gitignore").read_text(encoding="utf-8")
 results["existing: .gitignore appended, original kept"] = "node_modules/" in gi and ".claude/team/backup/" in gi
 rep = (ex / ".claude/team/install-report.md").read_text(encoding="utf-8")
@@ -91,6 +94,26 @@ results["update: user-modified kit file kept"] = "MY LOCAL RULE" in orch.read_te
 results["update: user-modified kit file -> incoming"] = (ex / ".claude/team/incoming/team/ORCHESTRATOR.md").exists()
 results["update: untouched old kit file updated"] = "old kit version" not in qa.read_text(encoding="utf-8")
 results["update: backup of updated file"] = any(p.name == "qa-engineer.md" for p in (ex / ".claude/team/backup").rglob("*.md"))
+
+# 8. own model/env values are kept; only missing env entries are added; kept values are reported
+own = BASE / "Свои настройки"
+(own / ".claude").mkdir(parents=True)
+(own / ".claude/settings.json").write_text(json.dumps({"model": "opus", "env": {"CLAUDE_CODE_AUTO_COMPACT_WINDOW": "500000", "MY_VAR": "1"}}), encoding="utf-8")
+code, out = inst(own, "-Analyze")
+results["own settings: plan shows kept values"] = code == 0 and "model=opus" in out and "CLAUDE_CODE_AUTO_COMPACT_WINDOW=500000" in out
+code, out = inst(own, "-Yes")
+st2 = json.loads((own / ".claude/settings.json").read_text(encoding="utf-8"))
+results["own settings: model and env values not overwritten"] = code == 0 and st2["model"] == "opus" and st2["env"] == {"CLAUDE_CODE_AUTO_COMPACT_WINDOW": "500000", "MY_VAR": "1"} and "SessionStart" in st2["hooks"]
+rep2 = (own / ".claude/team/install-report.md").read_text(encoding="utf-8")
+results["own settings: report lists kept values"] = "model=opus" in rep2 and "CLAUDE_CODE_AUTO_COMPACT_WINDOW=500000" in rep2
+own2 = BASE / "Частичные настройки"
+(own2 / ".claude").mkdir(parents=True)
+(own2 / ".claude/settings.json").write_text(json.dumps({"env": {"MY_VAR": "1"}}), encoding="utf-8")
+code, out = inst(own2, "-Yes")
+st3 = json.loads((own2 / ".claude/settings.json").read_text(encoding="utf-8"))
+results["partial settings: missing env entry and model added, own env kept"] = code == 0 and st3["env"] == {"MY_VAR": "1", "CLAUDE_CODE_AUTO_COMPACT_WINDOW": "250000"} and st3["model"] == "sonnet"
+code, out = inst(own2, "-Yes")
+results["partial settings: re-run reports settings unchanged"] = code == 0 and "settings.json: same" in (own2 / ".claude/team/install-report.md").read_text(encoding="utf-8")
 
 for k, v in results.items():
     print(("PASS " if v else "FAIL ") + k)

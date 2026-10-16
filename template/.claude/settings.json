@@ -1,4 +1,8 @@
 {
+  "model": "sonnet",
+  "env": {
+    "CLAUDE_CODE_AUTO_COMPACT_WINDOW": "250000"
+  },
   "hooks": {
     "SessionStart": [
       {

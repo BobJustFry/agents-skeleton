@@ -59,7 +59,7 @@ $isNewer = $false
 try { if ($latest) { $isNewer = ([version]$latest) -gt ([version]$installed) } } catch { }
 $msg = ''
 if ($isNewer -and ($Event -eq 'SessionStart' -or $notified -ne $latest)) {
-    $msg = "KARKAS UPDATE: kit version $latest is available on GitHub ($repo); this project has $installed. Tell the owner once, briefly and in Russian, and offer to update ('обнови каркас' — follow the kit README steps: analysis, plan, owner's 'да', then -Update). Do not update without the owner's 'да'."
+    $msg = "KARKAS UPDATE: kit version $latest is available on GitHub ($repo); this project has $installed. Tell the owner once, briefly and in Russian, and offer to update ('обнови каркас' — follow the kit README steps: analysis, plan, owner's 'да', then -Update; see .claude/team/reference/CONTINUOUS.md section 2.2). Do not update without the owner's 'да'."
     $notified = $latest
 }
 

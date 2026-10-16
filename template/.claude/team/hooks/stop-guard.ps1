@@ -49,7 +49,7 @@ $heartbeatOff = Test-Path -LiteralPath (Join-Path $root '.claude\team\state\hear
 if ($ids.Count -gt 0 -and -not $heartbeatOff -and $in.PSObject.Properties.Name -contains 'session_crons') {
     $crons = [string](ConvertTo-Json -InputObject @($in.session_crons) -Depth 6 -Compress)
     if (-not $crons.Contains('KARKAS HEARTBEAT')) {
-        $reasons += 'There is active work but no KARKAS HEARTBEAT cron in this session: create it now as described in ORCHESTRATOR.md section 2.1 (CronCreate, every 5 minutes).'
+        $reasons += 'There is active work but no KARKAS HEARTBEAT cron in this session: create it now as described in .claude/team/reference/CONTINUOUS.md section 2.1 (CronCreate, every 5 minutes).'
     }
 }
 

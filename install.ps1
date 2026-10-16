@@ -114,7 +114,7 @@ Get-ChildItem -LiteralPath $srcClaude -Recurse -File | Where-Object { $_.FullNam
 }
 
 # settings.json
-$settingsPlan = 'add'; $addedEvents = @(); $newSettingsJson = $null
+$settingsPlan = 'add'; $addedEvents = @(); $addedKeys = @(); $keptValues = @(); $newSettingsJson = $null
 if (Test-Path -LiteralPath $dstSettings) {
     $dstText = [IO.File]::ReadAllText($dstSettings)
     $dst = $dstText | ConvertFrom-Json
@@ -138,7 +138,19 @@ if (Test-Path -LiteralPath $dstSettings) {
         }
         $addedEvents += $ev
     }
-    if ($addedEvents.Count -eq 0) { $settingsPlan = 'same' } else { $settingsPlan = 'merge'; $newSettingsJson = $dst | ConvertTo-Json -Depth 32 }
+    # Top-level defaults (model, env entries): add only what is missing, never overwrite the project's own values
+    if ($src.PSObject.Properties.Name -contains 'model') {
+        if ($dst.PSObject.Properties.Name -contains 'model') { if ([string]$dst.model -ne [string]$src.model) { $keptValues += "model=$($dst.model)" } }
+        else { $dst | Add-Member -NotePropertyName model -NotePropertyValue $src.model; $addedKeys += 'model' }
+    }
+    if ($src.PSObject.Properties.Name -contains 'env') {
+        if (-not ($dst.PSObject.Properties.Name -contains 'env') -or $null -eq $dst.env) { $dst | Add-Member -Force -NotePropertyName env -NotePropertyValue ([pscustomobject]@{}) }
+        foreach ($p in $src.env.PSObject.Properties) {
+            if ($dst.env.PSObject.Properties.Name -contains $p.Name) { if ([string]$dst.env.($p.Name) -ne [string]$p.Value) { $keptValues += "env.$($p.Name)=$($dst.env.($p.Name))" } }
+            else { $dst.env | Add-Member -NotePropertyName $p.Name -NotePropertyValue $p.Value; $addedKeys += "env.$($p.Name)" }
+        }
+    }
+    if ($addedEvents.Count -eq 0 -and $addedKeys.Count -eq 0) { $settingsPlan = 'same' } else { $settingsPlan = 'merge'; $newSettingsJson = $dst | ConvertTo-Json -Depth 32 }
     $foreignHooks = @($dst.hooks.PSObject.Properties | ForEach-Object { $ev = $_.Name; @($_.Value) | Where-Object { -not ((ConvertTo-Json -InputObject $_ -Depth 16 -Compress).Contains('.claude/team/hooks/')) } | ForEach-Object { $ev } })
 } else { $foreignHooks = @() }
 
@@ -187,7 +199,8 @@ if ($c.outdated.Count) { Write-Host ("  устаревших (нужен -Update
 Write-Host ("  без изменений:              " + $c.same.Count)
 Write-Host ("  КОНФЛИКТОВ:                 " + $c.conflict.Count + $(if ($c.conflict.Count) { '  (ваш файл не трогаем; версия каркаса -> .claude\team\incoming\)' } else { '' }))
 foreach ($x in $c.conflict) { Write-Host ("     ! " + $x.Rel) }
-Write-Host ("  .claude\settings.json:      " + @{ add = 'создать (хуки каркаса)'; merge = 'дополнить хуками: ' + ($addedEvents -join ', ') + ' (ваши настройки сохраняются)'; same = 'без изменений' }[$settingsPlan])
+Write-Host ("  .claude\settings.json:      " + @{ add = 'создать (хуки и настройки каркаса)'; merge = 'дополнить: ' + (@($addedEvents) + @($addedKeys) -join ', ') + ' (ваши настройки сохраняются)'; same = 'без изменений' }[$settingsPlan])
+if ($keptValues.Count) { Write-Host ("     оставляем ваши значения: " + ($keptValues -join ', ') + ' (каркас их не меняет)') }
 if ($foreignHooks.Count) { Write-Host ("     в проекте есть свои хуки: " + (($foreignHooks | Sort-Object -Unique) -join ', ') + ' — останутся, проверим на онбординге') }
 $claudeLabel = if ($claudeMd) { $claudeMd.Substring($Target.Length + 1) } else { 'CLAUDE.md' }
 Write-Host ("  " + $claudeLabel + ": " + @{ create = 'создать из шаблона'; append = 'дописать в конец: ' + ($claudeWhat -join ', '); same = 'всё уже подключено' }[$claudePlan])
@@ -255,7 +268,8 @@ $r += ''
 $r += "Дата: $(Get-Date -Format 'yyyy-MM-dd HH:mm'). Папка: $Target. Git: $(if ($isGit) { 'да' } else { 'нет' })."
 $r += ''
 $r += "- Добавлено файлов: $($c.add.Count); обновлено: $($c.update.Count); без изменений: $($c.same.Count); устаревших (нужен -Update): $($c.outdated.Count)."
-$r += "- settings.json: $settingsPlan $(if ($addedEvents.Count) { '(' + ($addedEvents -join ', ') + ')' })."
+$r += "- settings.json: $settingsPlan $(if ($addedEvents.Count -or $addedKeys.Count) { '(' + (@($addedEvents) + @($addedKeys) -join ', ') + ')' })."
+if ($keptValues.Count) { $r += "- settings.json: оставлены значения проекта (каркас предлагает иные): $($keptValues -join ', ')." }
 $r += "- $claudeLabel`: $claudePlan $(if ($claudeWhat.Count) { '(' + ($claudeWhat -join ', ') + ')' })."
 $r += "- .gitignore: $giPlan."
 if (Test-Path -LiteralPath $backupDir) { $r += "- Резервные копии изменённых файлов: $($backupDir.Substring($Target.Length + 1))." }

@@ -2,7 +2,7 @@
 
 # Karkas — a ready-made AI team for any project
 
-**Version 0.1.18** · build number = commit count (`VERSION` file)
+**Version 0.1.19** · build number = commit count (`VERSION` file)
 
 Install Karkas into a project folder, and Claude Code in that folder becomes the **Chief Orchestrator**. It works out the task, plans it, hands the work to 22 specialists, checks the results and reports back to you.
 
@@ -174,17 +174,28 @@ Only files installed by the kit that you have not modified are updated. If you e
   - code: an actual run.
 
   If something cannot be checked, the task is marked unverified, not done.
-- **Paid calls only after studying the docs.** Before spending money on a generation (images, video, voice, etc.), an agent must study the official documentation of that exact model and record it in the project's knowledge base. Without a fresh record a hook blocks the paid call, and every allowed call is logged to `.claude	eam\state\paid-calls.log`. Free actions (balance, model list, cost estimate) are never blocked. Project-specific paid tools can be added in `.claude	eam\paid-tools.local.json`.
+- **Paid calls only after studying the docs.** Before spending money on a generation (images, video, voice, etc.), an agent must study the official documentation of that exact model and record it in the project's knowledge base. Without a fresh record a hook blocks the paid call, and every allowed call is logged to `.claude\team\state\paid-calls.log`. Free actions (balance, model list, cost estimate) are never blocked. Project-specific paid tools can be added in `.claude\team\paid-tools.local.json`.
 - **Professional tools only.** In production, tools that distort video, images, audio, UI, text or code are forbidden. The result of every processing step is compared with the source.
 
-The models in the tables are defaults. For each task the orchestrator picks the model and effort level itself, following section 13 of its prompt.
+The models in the tables are defaults. For each task the orchestrator picks the model and effort level itself, following section 13 of its prompt (`.claude/team/reference/MODEL_POLICY.md`).
+
+## Token economy
+
+Every request re-reads the whole session context, so a long session burns through the 5-hour plan limit quickly.
+
+- **One task, one session.** Start a new session for a new, unrelated task: the project state is saved on disk. The orchestrator suggests this itself.
+- **`/compact`** compacts the conversation manually when it has grown. The orchestrator suggests it when the context is more than ~60% full.
+- **Auto-compaction at ~250,000 tokens.** The kit sets `CLAUDE_CODE_AUTO_COMPACT_WINDOW=250000` in `.claude/settings.json` (by default compaction triggers close to the 1M-token window limit). For a different personal value, use `env` in `.claude/settings.local.json`.
+- **Orchestrator on Sonnet.** By default the main session runs on Sonnet 5.5 (`"model": "sonnet"` in `.claude/settings.json`). For heavy architecture or hard debugging, switch to Opus in the model picker (`/model`); a new session starts on Sonnet again.
+- **Short prompt, short reports.** Each session loads only the orchestrator's core rules; it reads the reference sections on demand. Agents do not load the orchestrator prompt and keep reports to ~40 lines.
 
 ## What's inside
 
 | Path | What it is |
 |---|---|
 | `template/CLAUDE.md` | project entry point; connects the orchestrator |
-| `template/.claude/team/ORCHESTRATOR.md` | orchestrator prompt: role, team, rules, model policy (section 13) |
+| `template/.claude/team/ORCHESTRATOR.md` | orchestrator core prompt: role, rules, delegation, acceptance, token economy |
+| `template/.claude/team/reference/` | orchestrator reference sections, read on demand: team (`TEAM.md`), model policy, section 13 (`MODEL_POLICY.md`), continuous work (`CONTINUOUS.md`), documents (`DOCS.md`), onboarding (`ONBOARDING.md`) |
 | `template/.claude/agents/` | 22 agent prompts |
 | `template/.claude/team/templates/` | templates for project documents and the knowledge base |
 | `template/.claude/team/hooks/`, `template/.claude/settings.json` | continuous work and context-loss protection |
@@ -193,4 +204,4 @@ The models in the tables are defaults. For each task the orchestrator picks the 
 
 ## Model review
 
-Every day at 12:00 and 18:00, a scheduled task on the maintainer's machine compares section 13 of the orchestrator prompt with Claude's current model lineup. When nothing changed it touches nothing. When something changed it updates the section, bumps the version and publishes it to GitHub, and every project then gets the update notice. The task runs only while the Claude app is open.
+Every day at 12:00 and 18:00, a scheduled task on the maintainer's machine compares section 13 of the orchestrator prompt (`template/.claude/team/reference/MODEL_POLICY.md`) with Claude's current model lineup. When nothing changed it touches nothing. When something changed it updates the section, bumps the version and publishes it to GitHub, and every project then gets the update notice. The task runs only while the Claude app is open.
