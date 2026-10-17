@@ -38,6 +38,29 @@ results["new: settings has default model and auto-compact env"] = (lambda s: s.g
 results["new: orchestrator reference files installed"] = all((new / ".claude/team/reference" / f).exists() for f in ["TEAM.md", "MODEL_POLICY.md", "CONTINUOUS.md", "DOCS.md", "ONBOARDING.md"])
 results["new: manifest + report + gitignore"] = all((new / p).exists() for p in [".claude/team/kit-manifest.json", ".claude/team/install-report.md", ".gitignore", "CLAUDE.md", ".claude/settings.json"])
 
+results["new: integration guard files installed (hook, config, tree-state, ledger template, reference)"] = all((new / f).exists() for f in [".claude/team/hooks/integration-guard.ps1", ".claude/team/integration-commands.json", ".claude/team/tree-state.ps1", ".claude/team/templates/RUNS.md", ".claude/team/reference/INTEGRATION.md"])
+pre = json.loads((new / ".claude/settings.json").read_text(encoding="utf-8"))["hooks"]["PreToolUse"]
+results["new: PreToolUse has paid-guard (mcp) and integration-guard (Bash|PowerShell)"] = len(pre) == 2 and any(e["matcher"] == "mcp__.*" and "paid-guard.ps1" in json.dumps(e) for e in pre) and any(e["matcher"] == "Bash|PowerShell" and "integration-guard.ps1" in json.dumps(e) for e in pre)
+results["new: .gitignore lists gate, guard log and ledger"] = all(s in (new / ".gitignore").read_text(encoding="utf-8") for s in ["state/integration-gate", "state/integration-guard.log", "state/runs.md"])
+results["new: 22 agents carry the 'no redundant work' block"] = all("### Никакой лишней работы" in a.read_text(encoding="utf-8") for a in agents)
+
+# 3b. project installed by an older kit version (no integration-guard in settings, old .gitignore block): re-install adds exactly what is missing
+st_old = json.loads((new / ".claude/settings.json").read_text(encoding="utf-8"))
+st_old["hooks"]["PreToolUse"] = [e for e in st_old["hooks"]["PreToolUse"] if "integration-guard" not in json.dumps(e)]
+st_old["hooks"]["PreToolUse"].append({"matcher": "Bash", "hooks": [{"type": "command", "command": "echo my-own-bash-hook"}]})
+(new / ".claude/settings.json").write_text(json.dumps(st_old), encoding="utf-8")
+gi_old = (new / ".gitignore").read_text(encoding="utf-8")
+for line in ["integration-guard.log", "integration-gate", "integration-guard-off", "runs.md"]:
+    gi_old = chr(10).join(l for l in gi_old.splitlines() if not l.endswith("state/" + line)) + chr(10)
+(new / ".gitignore").write_text(gi_old, encoding="utf-8")
+code, out = inst(new, "-Yes")
+pre2 = json.loads((new / ".claude/settings.json").read_text(encoding="utf-8"))["hooks"]["PreToolUse"]
+results["older install: integration-guard added once, paid-guard not duplicated, own Bash hook kept"] = code == 0 and json.dumps(pre2).count("integration-guard.ps1") == 1 and json.dumps(pre2).count("paid-guard.ps1") == 1 and "my-own-bash-hook" in json.dumps(pre2)
+gi2 = (new / ".gitignore").read_text(encoding="utf-8")
+results["older install: missing .gitignore lines added, none duplicated"] = all(gi2.count("state/" + s) == 1 for s in ["integration-guard.log", "integration-gate", "integration-guard-off", "runs.md"]) and gi2.count("# Karkas (AI team): local artifacts") == 1
+code, out = inst(new, "-Yes")
+results["older install: re-run changes neither settings nor .gitignore"] = code == 0 and json.dumps(json.loads((new / ".claude/settings.json").read_text(encoding="utf-8"))["hooks"]["PreToolUse"]).count("integration-guard.ps1") == 1 and (new / ".gitignore").read_text(encoding="utf-8") == gi2 and "settings.json: same" in (new / ".claude/team/install-report.md").read_text(encoding="utf-8")
+
 # 4. existing git project, dirty -> stop, nothing changed
 ex = BASE / "Старый проект"
 (ex / ".claude/agents").mkdir(parents=True)
@@ -94,6 +117,17 @@ results["update: user-modified kit file kept"] = "MY LOCAL RULE" in orch.read_te
 results["update: user-modified kit file -> incoming"] = (ex / ".claude/team/incoming/team/ORCHESTRATOR.md").exists()
 results["update: untouched old kit file updated"] = "old kit version" not in qa.read_text(encoding="utf-8")
 results["update: backup of updated file"] = any(p.name == "qa-engineer.md" for p in (ex / ".claude/team/backup").rglob("*.md"))
+
+# 7b. project-specific integration config is never touched; a user-edited kit config is kept (kit version -> incoming)
+loc = ex / ".claude/team/integration-commands.local.json"
+loc.write_text(json.dumps({"patterns": [{"class": "lint", "pattern": "^eslint\\s+\\.$"}]}), encoding="utf-8")
+cfgp = ex / ".claude/team/integration-commands.json"
+cfgp.write_text(cfgp.read_text(encoding="utf-8").replace('"gate_ttl_hours": 12', '"gate_ttl_hours": 99'), encoding="utf-8")
+git(ex, "add", "-A"); git(ex, "-c", "user.name=t", "-c", "user.email=t@t", "commit", "-qm", "local cfg")
+loc_before = loc.read_bytes()
+code, out = inst(ex, "-Update", "-Yes")
+results["update: integration-commands.local.json untouched"] = loc.exists() and loc.read_bytes() == loc_before
+results["update: user-edited integration-commands.json kept, kit version in incoming"] = '"gate_ttl_hours": 99' in cfgp.read_text(encoding="utf-8") and (ex / ".claude/team/incoming/team/integration-commands.json").exists()
 
 # 8. own model/env values are kept; only missing env entries are added; kept values are reported
 own = BASE / "Свои настройки"

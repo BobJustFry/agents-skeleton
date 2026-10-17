@@ -2,7 +2,7 @@
 
 # Karkas — a ready-made AI team for any project
 
-**Version 0.1.19** · build number = commit count (`VERSION` file)
+**Version 0.1.20** · build number = commit count (`VERSION` file)
 
 Install Karkas into a project folder, and Claude Code in that folder becomes the **Chief Orchestrator**. It works out the task, plans it, hands the work to 22 specialists, checks the results and reports back to you.
 
@@ -175,6 +175,8 @@ Only files installed by the kit that you have not modified are updated. If you e
 
   If something cannot be checked, the task is marked unverified, not done.
 - **Paid calls only after studying the docs.** Before spending money on a generation (images, video, voice, etc.), an agent must study the official documentation of that exact model and record it in the project's knowledge base. Without a fresh record a hook blocks the paid call, and every allowed call is logged to `.claude\team\state\paid-calls.log`. Free actions (balance, model list, cost estimate) are never blocked. Project-specific paid tools can be added in `.claude\team\paid-tools.local.json`.
+- **Final actions only on your command, after a report on open tasks.** The coordinator runs the build, packaging, release, deploy and the full tests only when you explicitly ask, and first tells you what is finished, what is still open, what will run and what it risks. The approval covers one batch of tasks.
+- **No redundant work.** Expensive actions (build, packaging, deploy, a full test run, dependency install) run once per batch of tasks, not after every task. The coordinator groups tasks into a batch and opens a "gate" (the file `.claude\team\state\integration-gate`) only after all tasks of the batch are accepted and you have said yes (the file records your approval), then closes it. While the gate is closed, the `integration-guard` hook blocks such commands for everyone, and agents cannot open the gate themselves. A runs ledger `.claude\team\state\runs.md` (with a working-tree state key) prevents repeating what already succeeded on the same state. Project-specific command patterns go to `.claude\team\integration-commands.local.json`; the hook is switched off with the file `.claude\team\state\integration-guard-off`.
 - **Professional tools only.** In production, tools that distort video, images, audio, UI, text or code are forbidden. The result of every processing step is compared with the source.
 
 The models in the tables are defaults. For each task the orchestrator picks the model and effort level itself, following section 13 of its prompt (`.claude/team/reference/MODEL_POLICY.md`).
@@ -195,12 +197,13 @@ Every request re-reads the whole session context, so a long session burns throug
 |---|---|
 | `template/CLAUDE.md` | project entry point; connects the orchestrator |
 | `template/.claude/team/ORCHESTRATOR.md` | orchestrator core prompt: role, rules, delegation, acceptance, token economy |
-| `template/.claude/team/reference/` | orchestrator reference sections, read on demand: team (`TEAM.md`), model policy, section 13 (`MODEL_POLICY.md`), continuous work (`CONTINUOUS.md`), documents (`DOCS.md`), onboarding (`ONBOARDING.md`) |
+| `template/.claude/team/reference/` | orchestrator reference sections, read on demand: team (`TEAM.md`), model policy, section 13 (`MODEL_POLICY.md`), continuous work (`CONTINUOUS.md`), documents (`DOCS.md`), onboarding (`ONBOARDING.md`), task batches, gate and runs ledger (`INTEGRATION.md`) |
 | `template/.claude/agents/` | 22 agent prompts |
 | `template/.claude/team/templates/` | templates for project documents and the knowledge base |
-| `template/.claude/team/hooks/`, `template/.claude/settings.json` | continuous work and context-loss protection |
+| `template/.claude/team/hooks/`, `template/.claude/settings.json` | continuous work, context-loss protection, paid-call and redundant-build guards |
+| `template/.claude/team/integration-commands.json`, `template/.claude/team/tree-state.ps1` | command patterns for the `integration-guard` hook and the working-tree state key for the runs ledger |
 | `install.cmd`, `install.ps1` | analysis, installation and updates |
-| `tests/hooks_test.py`, `tests/install_test.py`, `tests/paid_guard_test.py` | tests for the hooks, the installer and the paid-call guard |
+| `tests/hooks_test.py`, `tests/install_test.py`, `tests/paid_guard_test.py`, `tests/integration_guard_test.py` | tests for the hooks, the installer, the paid-call guard and the redundant-build guard |
 
 ## Model review
 

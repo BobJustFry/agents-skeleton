@@ -49,6 +49,10 @@ $gitignoreLines = @(
     '.claude/team/kit-source.txt',
     '.claude/team/state/update-check.json',
     '.claude/team/state/paid-calls.log',
+    '.claude/team/state/integration-guard.log',
+    '.claude/team/state/integration-gate',
+    '.claude/team/state/integration-guard-off',
+    '.claude/team/state/runs.md',
     '.claude/team/state/screenshots/',
     '.claude/team/state/compactions/',
     '.claude/agent-memory-local/'
@@ -171,10 +175,14 @@ if ($claudeMd) {
 
 # .gitignore
 $giPath = Join-Path $Target '.gitignore'
-$giPlan = 'skip'
+$giPlan = 'skip'; $giMissing = @()
 if ($isGit -or $isNew -or (Test-Path -LiteralPath $giPath)) {
     $gi = if (Test-Path -LiteralPath $giPath) { [IO.File]::ReadAllText($giPath) } else { '' }
-    $giPlan = if ($gi.Contains($gitignoreMarker)) { 'same' } elseif ($gi) { 'append' } else { 'create' }
+    if ($gi.Contains($gitignoreMarker)) {
+        # block written by an older kit version: add only the lines it lacks (e.g. the integration gate must never be committed)
+        $giMissing = @($gitignoreLines | Where-Object { $gi -notmatch ('(?m)^' + [regex]::Escape($_) + '\s*$') })
+        $giPlan = if ($giMissing.Count) { 'extend' } else { 'same' }
+    } elseif ($gi) { $giPlan = 'append' } else { $giPlan = 'create' }
 }
 
 # Другие инструкции для AI в проекте (для онбординга)
@@ -204,7 +212,7 @@ if ($keptValues.Count) { Write-Host ("     оставляем ваши знач�
 if ($foreignHooks.Count) { Write-Host ("     в проекте есть свои хуки: " + (($foreignHooks | Sort-Object -Unique) -join ', ') + ' — останутся, проверим на онбординге') }
 $claudeLabel = if ($claudeMd) { $claudeMd.Substring($Target.Length + 1) } else { 'CLAUDE.md' }
 Write-Host ("  " + $claudeLabel + ": " + @{ create = 'создать из шаблона'; append = 'дописать в конец: ' + ($claudeWhat -join ', '); same = 'всё уже подключено' }[$claudePlan])
-Write-Host ("  .gitignore:                 " + @{ skip = 'не трогаем (нет git)'; create = 'создать с локальными файлами каркаса'; append = 'дописать локальные файлы каркаса'; same = 'без изменений' }[$giPlan])
+Write-Host ("  .gitignore:                 " + @{ skip = 'не трогаем (нет git)'; create = 'создать с локальными файлами каркаса'; append = 'дописать локальные файлы каркаса'; extend = 'дописать новые локальные файлы каркаса (' + $giMissing.Count + ')'; same = 'без изменений' }[$giPlan])
 if ($foreignAgents.Count) { Write-Host ("  ваши агенты (останутся):    " + ($foreignAgents -join ', ')) }
 if ($otherRules.Count) { Write-Host ("  другие правила для AI:      " + ($otherRules -join ', ') + ' — сверим на онбординге') }
 
@@ -246,6 +254,10 @@ switch ($settingsPlan) {
 switch ($claudePlan) {
     'create' { Copy-Item -LiteralPath (Join-Path $templateRoot 'CLAUDE.md') -Destination $claudeRoot }
     'append' { Backup-File $claudeMd; [IO.File]::WriteAllText($claudeMd, ([IO.File]::ReadAllText($claudeMd)).TrimEnd() + $claudeAppend + "`r`n", $utf8NoBom) }
+}
+if ($giPlan -eq 'extend') {
+    Backup-File $giPath
+    [IO.File]::WriteAllText($giPath, ([IO.File]::ReadAllText($giPath)).TrimEnd() + "`r`n" + ($giMissing -join "`r`n") + "`r`n", $utf8NoBom)
 }
 if ($giPlan -in @('create', 'append')) {
     Backup-File $giPath
