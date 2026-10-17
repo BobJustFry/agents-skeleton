@@ -2,7 +2,7 @@
 
 # Karkas — a ready-made AI team for any project
 
-**Version 0.1.20** · build number = commit count (`VERSION` file)
+**Version 0.1.21** · build number = commit count (`VERSION` file)
 
 Install Karkas into a project folder, and Claude Code in that folder becomes the **Chief Orchestrator**. It works out the task, plans it, hands the work to 22 specialists, checks the results and reports back to you.
 
@@ -165,7 +165,7 @@ Only files installed by the kit that you have not modified are updated. If you e
 - **Money** is spent only within a budget you have approved, for the whole task or for a stage.
 - **They argue with you.** If you are wrong, neither the orchestrator nor the agents will agree. A disputed decision is carried out only after you confirm you accept the risks with your personal code word. The code word lives only in your private settings in `~/.claude/CLAUDE.md`; it is not part of the kit.
 - **Updates arrive by themselves.** At session start and on your messages the project silently compares its version with GitHub, at most every 15 minutes. When a new version is out, the orchestrator offers the update once. It updates only after your "да", and your edits are preserved.
-- **Work does not stall.** While there are unfinished tasks, the orchestrator checks every 5 minutes whether they can move forward. When no work is left, the heartbeat removes itself, so the chat stays clean. If the orchestrator tries to stop with unfinished tasks, a hook sends it back to work.
+- **Work does not stall, and limits are not burned.** Work is event-driven: background agents report when they finish, and the `Stop` hook sends the orchestrator back to work while unblocked tasks remain. There is no timer polling: every wake-up re-reads the whole session context (hundreds of thousands of tokens), so a 5-minute heartbeat drained the usage limit fast. For waits that send no notification (CI, deploy, queue) the orchestrator sets one one-shot wake-up of at least 20 minutes, and skips it when the context is large.
 - **Protection against context loss.** When the context overflows it is compacted and details are lost. So the orchestrator keeps a state file on disk (tasks, decisions, budgets, next step), and each agent keeps its brief and progress files. After compaction a hook restores the rules and the state, every summary is archived, and agents have persistent per-project memory.
 - **Nobody works blind.** A result is accepted only after it has been checked as it actually is:
   - UI and images: screenshots the agent opened and described;

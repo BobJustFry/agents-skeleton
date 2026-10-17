@@ -26,17 +26,19 @@ def run(script, payload, bom=False):
     return r.stdout.decode("utf-8", "replace").strip()
 
 
-stop = {"stop_hook_active": False, "cwd": str(T), "background_tasks": [],
-        "session_crons": [{"prompt": "KARKAS HEARTBEAT"}]}
+stop = {"stop_hook_active": False, "cwd": str(T), "background_tasks": []}
 results = {}
 results["stop: sees unblocked task (Cyrillic path)"] = "T-1" in run("stop-guard.ps1", stop)
 results["stop: UTF-8 BOM on stdin"] = "T-1" in run("stop-guard.ps1", stop, bom=True)
 results["stop: no loop when stop_hook_active"] = run("stop-guard.ps1", dict(stop, stop_hook_active=True)) == ""
-results["stop: missing heartbeat is reported"] = "HEARTBEAT" in run("stop-guard.ps1", dict(stop, session_crons=[]))
+results["stop: does not ask to create a heartbeat (even without crons)"] = "HEARTBEAT" not in run("stop-guard.ps1", dict(stop, session_crons=[])).upper() and "CronCreate" not in run("stop-guard.ps1", dict(stop, session_crons=[]))
 results["stop: shell bg task does not suspend"] = "T-1" in run("stop-guard.ps1", dict(stop, background_tasks=[{"type": "local_bash", "description": "npm run dev"}]))
 results["stop: agent bg task suspends"] = run("stop-guard.ps1", dict(stop, background_tasks=[{"type": "local_agent", "description": "qa"}])) == ""
 results["session-start: restores STATE after compact"] = "КИРИЛЛИЦА-STATE" in run("session-start.ps1", {"source": "compact", "cwd": str(T)})
-results["session-start: startup has heartbeat reminder"] = "KARKAS HEARTBEAT" in run("session-start.ps1", {"source": "startup", "cwd": str(T)})
+_ss_start = run("session-start.ps1", {"source": "startup", "cwd": str(T)})
+results["session-start: startup does not mention or create a heartbeat"] = "HEARTBEAT" not in _ss_start.upper() and "CronCreate" not in _ss_start and "T-1" in _ss_start
+_ss_resume = run("session-start.ps1", {"source": "resume", "cwd": str(T)})
+results["session-start: resume tells to delete an obsolete heartbeat, never to create one"] = "delete it (obsolete since 0.1.21)" in _ss_resume and "CronCreate" not in _ss_resume and "needs to be created" not in _ss_resume
 run("post-compact.ps1", {"trigger": "auto", "cwd": str(T), "compact_summary": "пересказ на русском"})
 run("post-compact.ps1", {"trigger": "auto", "cwd": str(T), "agent_type": "plugin:agent", "compact_summary": "x"})
 arch = list((T / ".claude/team/state/compactions").glob("*.md"))
@@ -45,17 +47,18 @@ results["post-compact: plugin:agent name sanitized"] = any("plugin_agent" in f.n
 out = run("subagent-start.ps1", {"agent_type": "qa-engineer", "cwd": str(T)})
 results["subagent-start: valid JSON"] = json.loads(out)["hookSpecificOutput"]["hookEventName"] == "SubagentStart"
 
-(T / ".claude/team/state/heartbeat-off").write_text("", encoding="utf-8")
-results["heartbeat-off: stop does not demand heartbeat"] = "HEARTBEAT" not in run("stop-guard.ps1", dict(stop, session_crons=[], cwd=str(T)))
-results["heartbeat-off: session-start says switched off"] = "switched off" in run("session-start.ps1", {"source": "startup", "cwd": str(T)})
-(T / ".claude/team/state/heartbeat-off").unlink()
-
-# quiet heartbeat: without active tasks no heartbeat is demanded and none is suggested
+# no active tasks: nothing to continue, stop is silent; no heartbeat text anywhere
 (T / "docs/project/TASKS.md").write_text("| T-1 | тест | x | - | - | Принята | ok |" + chr(10), encoding="utf-8")
-results["quiet: no active tasks -> stop does not demand heartbeat"] = run("stop-guard.ps1", dict(stop, session_crons=[])) == ""
-results["quiet: no active tasks -> session-start says not needed"] = "no heartbeat is needed" in run("session-start.ps1", {"source": "startup", "cwd": str(T)})
+results["quiet: no active tasks -> stop is silent"] = run("stop-guard.ps1", dict(stop)) == ""
+results["quiet: no active tasks -> session-start has no heartbeat text"] = "HEARTBEAT" not in run("session-start.ps1", {"source": "startup", "cwd": str(T)}).upper()
 (T / "docs/project/TASKS.md").write_text("| T-1 | тест | x | - | - | Готова к выполнению | ok |" + chr(10), encoding="utf-8")
-results["quiet: active tasks -> session-start asks for heartbeat"] = "needs to be created" in run("session-start.ps1", {"source": "startup", "cwd": str(T)})
+
+# shipped template must not tell the coordinator to poll
+_tpl = H.parent
+_hook_text = "".join((H / f).read_text(encoding="utf-8-sig") for f in ("session-start.ps1", "stop-guard.ps1", "update-check.ps1", "post-compact.ps1", "subagent-start.ps1"))
+results["hooks: no CronCreate / recurring heartbeat instruction in hook sources"] = "CronCreate" not in _hook_text and "2-59/5" not in _hook_text and "heartbeat-off" not in _hook_text
+_cont = (_tpl / "reference" / "CONTINUOUS.md").read_text(encoding="utf-8")
+results["rules: CONTINUOUS.md has no 5-minute heartbeat recipe, keeps one-shot wake-up rule"] = "2-59/5" not in _cont and "recurring: true" not in _cont and "20 минут" in _cont and "150" in _cont
 
 # update-check: newer version on "GitHub" (local file URL), 15-minute cache, notify once
 vfile = T.parent / "VERSION"; vfile.write_text("9.9.9" + chr(10), encoding="utf-8")

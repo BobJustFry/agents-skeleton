@@ -1,5 +1,5 @@
 ﻿# Karkas: SessionStart hook.
-# - every start: reminds the orchestrator about the 5-minute heartbeat;
+# - every start: reports the date and the active tasks (no polling heartbeat since 0.1.21);
 # - after compaction / resume / clear: re-injects key rules and the saved state (anti-amnesia).
 # Output is phrased as facts (hook context is capped at 10,000 chars per string).
 $ErrorActionPreference = 'SilentlyContinue'
@@ -42,23 +42,21 @@ $root = Get-KarkasRoot $in
 $today = Get-Date -Format 'yyyy-MM-dd'
 
 $parts = @()
-$heartbeatOff = Test-Path -LiteralPath (Join-Path $root '.claude\team\state\heartbeat-off')
-if ($heartbeatOff) { $parts += "KARKAS: session event '$source', date $today. The heartbeat is switched off for this project (.claude/team/state/heartbeat-off exists); do not create it." } else {
 $ids = Get-ActiveTaskIds $root
 if ($ids.Count -gt 0) {
-    $parts += "KARKAS: session event '$source', date $today. Active tasks: $($ids -join ', '). While there is active work the heartbeat is needed: a session cron named 'KARKAS HEARTBEAT' (CronCreate '2-59/5 * * * *', recurring, prompt text in .claude/team/reference/CONTINUOUS.md section 2.1, created date $today); if CronList does not show it, it needs to be created silently."
+    $parts += "KARKAS: session event '$source', date $today. Active tasks: $($ids -join ', ')."
 } else {
-    $parts += "KARKAS: session event '$source', date $today. No active tasks, so no heartbeat is needed now; it is created when active work appears (.claude/team/reference/CONTINUOUS.md section 2.1) and removes itself when the work is done."
-}
+    $parts += "KARKAS: session event '$source', date $today. No active tasks."
 }
 
 if ($source -ne 'startup') {
     $parts += @"
 KARKAS CONTEXT RESTORE: the conversation history was compacted, resumed or cleared, so earlier details may be missing. Facts that still apply:
-- You are the Chief Orchestrator; the core rules are in .claude/team/ORCHESTRATOR.md (re-read it now to restore them exactly). Reference files in .claude/team/reference/: TEAM.md and MODEL_POLICY.md before delegating, CONTINUOUS.md for heartbeat/updates/context protection; its last section says when to read each.
+- You are the Chief Orchestrator; the core rules are in .claude/team/ORCHESTRATOR.md (re-read it now to restore them exactly). Reference files in .claude/team/reference/: TEAM.md and MODEL_POLICY.md before delegating, CONTINUOUS.md for event-driven work/updates/context protection; its last section says when to read each.
 - Owner language: Russian only, brief, no fluff. Agents and internal notes: English.
 - Money: only within an owner-approved budget (whole task or stage). Disputed owner decisions: argue; comply only after OWNER OVERRIDE per ORCHESTRATOR.md section 1.6.
 - Official docs must be verified within 7 days (docs/knowledge/).
+- If CronList shows a KARKAS HEARTBEAT, delete it (obsolete since 0.1.21).
 - Working state lives in .claude/team/state/STATE.md; agent briefs in .claude/team/state/briefs/; agent checkpoints in .claude/team/state/progress/; compaction summaries in .claude/team/state/compactions/.
 "@
     $stateFile = Join-Path $root '.claude\team\state\STATE.md'

@@ -1,8 +1,8 @@
 ﻿# Karkas: checks GitHub for a newer kit version (at most once per 15 minutes; cached in between).
 #   Hook mode:   update-check.ps1 -Hook -Event SessionStart|UserPromptSubmit   (reads hook JSON on stdin)
-#   Plain mode:  update-check.ps1                                              (run by the heartbeat; prints one line or nothing)
+#   Plain mode:  update-check.ps1                                              (run by hand; prints one line or nothing)
 # The owner is told once per new version (SessionStart always repeats the notice). Never updates anything itself.
-param([switch]$Hook, [string]$Event = 'Heartbeat')
+param([switch]$Hook, [string]$Event = 'Manual')
 $ErrorActionPreference = 'SilentlyContinue'
 [Console]::OutputEncoding = New-Object System.Text.UTF8Encoding($false)
 $utf8 = New-Object System.Text.UTF8Encoding($false)
