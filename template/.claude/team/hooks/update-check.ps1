@@ -63,6 +63,20 @@ if ($isNewer -and ($Event -eq 'SessionStart' -or $notified -ne $latest)) {
     $notified = $latest
 }
 
+# Economy settings drift: without them sessions run on the global model with a ~1M context window and no early compaction.
+try {
+    $sp = Join-Path $root '.claude\settings.json'
+    if (Test-Path -LiteralPath $sp) {
+        $s = [IO.File]::ReadAllText($sp) | ConvertFrom-Json
+        $miss = @()
+        if (-not $s.model) { $miss += '"model": "sonnet"' }
+        if (-not ($s.env -and $s.env.CLAUDE_CODE_AUTO_COMPACT_WINDOW)) { $miss += 'env CLAUDE_CODE_AUTO_COMPACT_WINDOW=250000' }
+        if ($miss.Count -gt 0 -and $Event -eq 'SessionStart') {
+            $msg += " KARKAS SETTINGS: .claude/settings.json has no economy settings ($($miss -join ', ')). Tell the owner once, in Russian: the session runs on the global model with a ~1M context window and the cost of every request grows with it; offer to add them (section 2.4 of ORCHESTRATOR.md)."
+        }
+    }
+} catch { }
+
 New-Item -ItemType Directory -Force -Path $stateDir | Out-Null
 [IO.File]::WriteAllText($cachePath, ([ordered]@{ checked = $checked.ToString('s'); installed = $installed; latest = $latest; notified = $notified } | ConvertTo-Json), $utf8)
 

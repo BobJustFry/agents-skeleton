@@ -2,7 +2,7 @@
 
 # Karkas — a ready-made AI team for any project
 
-**Version 0.1.21** · build number = commit count (`VERSION` file)
+**Version 0.1.22** · build number = commit count (`VERSION` file)
 
 Install Karkas into a project folder, and Claude Code in that folder becomes the **Chief Orchestrator**. It works out the task, plans it, hands the work to 22 specialists, checks the results and reports back to you.
 
