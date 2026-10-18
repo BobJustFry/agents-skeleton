@@ -36,6 +36,7 @@ results["stop: shell bg task does not suspend"] = "T-1" in run("stop-guard.ps1",
 results["stop: agent bg task suspends"] = run("stop-guard.ps1", dict(stop, background_tasks=[{"type": "local_agent", "description": "qa"}])) == ""
 results["session-start: restores STATE after compact"] = "КИРИЛЛИЦА-STATE" in run("session-start.ps1", {"source": "compact", "cwd": str(T)})
 _ss_start = run("session-start.ps1", {"source": "startup", "cwd": str(T)})
+results["session-start: fresh startup also restores STATE.md (new-session path)"] = "КИРИЛЛИЦА-STATE" in _ss_start
 results["session-start: startup does not mention or create a heartbeat"] = "HEARTBEAT" not in _ss_start.upper() and "CronCreate" not in _ss_start and "T-1" in _ss_start
 _ss_resume = run("session-start.ps1", {"source": "resume", "cwd": str(T)})
 results["session-start: resume tells to delete an obsolete heartbeat, never to create one"] = "delete it (obsolete since 0.1.21)" in _ss_resume and "CronCreate" not in _ss_resume and "needs to be created" not in _ss_resume
@@ -79,6 +80,21 @@ cache = json.loads((T / ".claude/team/state/update-check.json").read_text(encodi
 results["update-check: after 15 min refetch, plain mode prints notice"] = "9.9.10" in upd([])
 (T / ".claude/team/kit-manifest.json").write_text(json.dumps({"version": "9.9.10", "repo": "https://github.com/x/y", "files": {}}), encoding="utf-8")
 results["update-check: up to date -> silent"] = upd(["-Hook", "-Event", "SessionStart"]) == ""
+
+# 0.1.23 rules: fable nowhere, code-reviewer on sonnet, one byte-identical shared block with the QA sentence
+import hashlib, re
+_agents = H.parent.parent / "agents"
+_core = (_tpl / "ORCHESTRATOR.md").read_text(encoding="utf-8")
+_mp = (_tpl / "reference" / "MODEL_POLICY.md").read_text(encoding="utf-8")
+results["rules: fable not offered in the core or in escalation"] = "fable" not in _core.split("`fable` не используй нигде")[0].lower() and "→ `fable`" not in _mp and "| `fable` | `high`" not in _mp
+_fm = lambda a: (_agents / (a + ".md")).read_text(encoding="utf-8")
+results["rules: code-reviewer defaults to sonnet/high, security-auditor stays opus/high"] = (
+    re.search(r"^model: sonnet\neffort: high$", _fm("code-reviewer"), re.M) is not None
+    and re.search(r"^model: opus\neffort: high$", _fm("security-auditor"), re.M) is not None)
+_files = list(_agents.glob("*.md"))
+_blocks = {hashlib.md5(f.read_text(encoding="utf-8").split("## Общие правила команды", 1)[1].encode("utf-8")).hexdigest() for f in _files}
+results["rules: shared agent block identical in all 22 agents and has the QA sentence"] = len(_files) == 22 and len(_blocks) == 1 and all("**QA в одном месте.**" in f.read_text(encoding="utf-8") for f in _files)
+results["rules: core points to owner report template, small-feature path, new-session suggestion"] = all(k in _core for k in ("Шаблон: `reference/DOCS.md`", "Малая фича", "Новая сессия", "QA в одном месте"))
 
 for name, ok in results.items():
     print(("PASS " if ok else "FAIL ") + name)

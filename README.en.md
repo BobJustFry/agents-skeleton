@@ -2,7 +2,7 @@
 
 # Karkas — a ready-made AI team for any project
 
-**Version 0.1.22** · build number = commit count (`VERSION` file)
+**Version 0.1.23** · build number = commit count (`VERSION` file)
 
 Install Karkas into a project folder, and Claude Code in that folder becomes the **Chief Orchestrator**. It works out the task, plans it, hands the work to 22 specialists, checks the results and reports back to you.
 
@@ -134,7 +134,7 @@ Only files installed by the kit that you have not modified are updated. If you e
 | Agent | Role | Model |
 |---|---|---|
 | `qa-engineer` | testing, bug hunting | sonnet / high |
-| `code-reviewer` | independent code review (read-only) | opus / high |
+| `code-reviewer` | independent code review (read-only); `opus` only for core logic, security-relevant code and the final pre-release review | sonnet / high |
 
 **Infrastructure and security**
 
@@ -190,6 +190,11 @@ Every request re-reads the whole session context, so a long session burns throug
 - **Auto-compaction at ~250,000 tokens.** The kit sets `CLAUDE_CODE_AUTO_COMPACT_WINDOW=250000` in `.claude/settings.json` (by default compaction triggers close to the 1M-token window limit). For a different personal value, use `env` in `.claude/settings.local.json`.
 - **Orchestrator on Sonnet.** By default the main session runs on Sonnet 5.5 (`"model": "sonnet"` in `.claude/settings.json`). For heavy architecture or hard debugging, switch to Opus in the model picker (`/model`); a new session starts on Sonnet again.
 - **Short prompt, short reports.** Each session loads only the orchestrator's core rules; it reads the reference sections on demand. Agents do not load the orchestrator prompt and keep reports to ~40 lines.
+- **`fable` is used nowhere** unless you personally name it in chat and confirm a second time. Model escalation ends at `opus`; after that the orchestrator stops and asks you.
+- **Reviews on Sonnet.** `code-reviewer` defaults to Sonnet; Opus only for core logic, security-relevant code and the final pre-release review. The security audit runs only when access, tokens, money or personal data are touched.
+- **The orchestrator does not work with its own hands.** Tests, builds, mass edits and log reading go to short agents, and only the result enters its context. At a milestone (task closed) with a large context it suggests a fresh session; this is only a suggestion, everything is saved in `STATE.md`.
+- **Small feature, short path.** One developer, one review at the end, a mockup of up to ~5 screens. For a complex project the orchestrator writes in the plan why the short path does not fit. QA happens in one place: the developer does a quick check, full QA belongs to `qa-engineer`.
+- **Reports to you in plain language:** what is ready, what you can check right now, what waits for you, what is next.
 
 ## What's inside
 

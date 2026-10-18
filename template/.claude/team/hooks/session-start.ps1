@@ -1,6 +1,7 @@
 ﻿# Karkas: SessionStart hook.
 # - every start: reports the date and the active tasks (no polling heartbeat since 0.1.21);
-# - after compaction / resume / clear: re-injects key rules and the saved state (anti-amnesia).
+# - every start: injects the saved STATE.md (a fresh session resumes from the last checkpoint);
+# - after compaction / resume / clear: also re-injects the key rules (anti-amnesia).
 # Output is phrased as facts (hook context is capped at 10,000 chars per string).
 $ErrorActionPreference = 'SilentlyContinue'
 # stdin from Claude Code is UTF-8; PowerShell 5.1 would decode it with the OEM code page (866) and break Cyrillic paths.
@@ -59,15 +60,18 @@ KARKAS CONTEXT RESTORE: the conversation history was compacted, resumed or clear
 - If CronList shows a KARKAS HEARTBEAT, delete it (obsolete since 0.1.21).
 - Working state lives in .claude/team/state/STATE.md; agent briefs in .claude/team/state/briefs/; agent checkpoints in .claude/team/state/progress/; compaction summaries in .claude/team/state/compactions/.
 "@
-    $stateFile = Join-Path $root '.claude\team\state\STATE.md'
-    if (Test-Path -LiteralPath $stateFile) {
-        $state = [IO.File]::ReadAllText($stateFile)
-        $budget = 10000 - (($parts -join "`n").Length) - 200
-        if ($state.Length -gt $budget) { $state = $state.Substring(0, [Math]::Max(0, $budget)) + "`n[STATE.md truncated - read the file for the rest]" }
-        $parts += "Current STATE.md:`n$state"
-    } else {
-        $parts += 'No .claude/team/state/STATE.md exists yet.'
-    }
+}
+
+# STATE.md is injected on every start (not only after compaction): a fresh session opened on a milestone
+# (the coordinator suggests that when the context is large) must resume from the saved checkpoint.
+$stateFile = Join-Path $root '.claude\team\state\STATE.md'
+if (Test-Path -LiteralPath $stateFile) {
+    $state = [IO.File]::ReadAllText($stateFile)
+    $budget = 10000 - (($parts -join "`n").Length) - 200
+    if ($state.Length -gt $budget) { $state = $state.Substring(0, [Math]::Max(0, $budget)) + "`n[STATE.md truncated - read the file for the rest]" }
+    $parts += "Current STATE.md (resume from its Last checkpoint and Next step; briefs and checkpoints are in .claude/team/state/):`n$state"
+} elseif ($source -ne 'startup') {
+    $parts += 'No .claude/team/state/STATE.md exists yet.'
 }
 
 $ctx = $parts -join "`n`n"

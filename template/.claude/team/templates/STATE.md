@@ -23,5 +23,8 @@ Updated: YYYY-MM-DD HH:MM
 ## Waiting for the owner
 - <question> — asked <date>
 
+## Last checkpoint
+- <milestone, date: what is done, what is in force; enough to resume in a fresh session>
+
 ## Next step
 - <the very next concrete action>
