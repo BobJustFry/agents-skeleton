@@ -6,7 +6,7 @@
 
 > Раздел пересматривается автоматически **ежедневно в 12:00 и 18:00** (запланированная задача «Пересмотр моделей команды» у владельца каркаса). Если изменений нет, задача ничего не трогает. Если изменения есть, она правит раздел, повышает версию каркаса, коммитит и отправляет изменения на GitHub, откуда они приходят во все проекты через обновление (раздел 2.2).
 
-**Последний пересмотр:** 2026-11-10 — `fable` теперь Claude Fable 5.2 ($8 / $40), правило «fable только по указанию владельца» не меняется (см. 13.4)
+**Последний пересмотр:** 2026-11-16 — уточнены алиасы у провайдеров: две версии Google Cloud, `haiku` вне Claude API ведёт на Haiku 4.5, Sonnet 4.5 снимается 30.11.2026 (см. 13.4)
 
 ### 13.1. Каталог моделей
 
@@ -21,7 +21,16 @@
 Уровни усилий (`effort`): `low` → `medium` → `high` → `xhigh` → `max`.
 В Claude Code у Opus 5.5, Sonnet 5.5 и Haiku 5.5 по умолчанию стоит `medium`, у Fable 5.2 — `medium` (в Claude API у Sonnet 5.5 и Fable 5.2 по умолчанию `high`). Поэтому уровень всегда задаётся **явно**.
 
-**Провайдеры.** Каталог выше действует для Claude API и подписок Claude. На Amazon Bedrock, Google Cloud Vertex AI, Microsoft Foundry и Claude Platform on AWS алиасы `sonnet` / `opus` / `haiku` могут указывать на более старые модели. Например, на Claude Platform on AWS `sonnet` ведёт на Sonnet 4.6, а `haiku` — на Haiku 4.5; на Bedrock и Google Cloud `sonnet` — на Sonnet 4.5, на Foundry `opus` — на Opus 4.6. Если проект работает через такого провайдера, задавай агентам полные ID моделей из документации провайдера и сверяй их в `docs/knowledge/`.
+**Провайдеры.** Каталог выше действует для Claude API и подписок Claude. У других провайдеров алиасы `sonnet` / `opus` / `haiku` в Claude Code могут указывать на более старые модели:
+
+| Провайдер | `opus` | `sonnet` | `haiku` |
+|---|---|---|---|
+| Claude Platform on AWS | Opus 5.5 | Sonnet 4.6 | Haiku 4.5 |
+| Claude Models on Google Cloud (Anthropic managed) | Opus 5.5 | Sonnet 5.5 | Haiku 4.5 |
+| Amazon Bedrock, Google Cloud (Google managed, Agent Platform / бывший Vertex AI) | Opus 5.5 | Sonnet 4.5 | Haiku 4.5 |
+| Microsoft Foundry | Opus 4.6 | Sonnet 4.5 | Haiku 4.5 |
+
+У всех этих провайдеров `haiku` ведёт на Haiku 4.5 (дороже: 1 / 5, контекст 200K). Значит, `researcher` и `tech-writer` там работают не на Haiku 5.5. Sonnet 4.5 снимается с Claude API 30.11.2026. Foundry следует графику Claude API, поэтому `sonnet` на Foundry под угрозой; у Bedrock и Google Cloud (Google managed) график свой. Если проект работает через такого провайдера, задавай агентам полные ID моделей из документации провайдера и сверяй их в `docs/knowledge/`.
 
 **Координатор (главная сессия)** по умолчанию работает на `sonnet` (Sonnet 5.5, effort `medium` — значение по умолчанию в Claude Code). Задаётся ключом `"model": "sonnet"` в `.claude/settings.json` проекта. На `opus` переключайся (владелец — через `/model`) только для сессий с тяжёлой архитектурой или сложной отладкой и скажи об этом владельцу; в новой сессии снова действует `sonnet`.
 
@@ -84,6 +93,7 @@
 
 Здесь фиксируются только реальные изменения: новые или снятые модели, изменения цен, пересмотр матрицы. Строка «Последний пересмотр» меняется только вместе с реальным изменением.
 
+- 2026-11-16 — примечание о провайдерах в 13.1 заменено таблицей алиасов: добавлен Claude Models on Google Cloud (Anthropic managed): `sonnet` → Sonnet 5.5, `haiku` → Haiku 4.5. Google Cloud разделён на Anthropic managed и Google managed (Agent Platform, бывший Vertex AI). Указано, что вне Claude API `haiku` везде ведёт на Haiku 4.5, `sonnet` на Foundry ведёт на Sonnet 4.5, а Sonnet 4.5 снимается 30.11.2026. Каталог 13.1 (модели Claude API, цены, effort по умолчанию), матрица 13.2 и модели агентов не менялись. Источники: https://code.claude.com/docs/en/model-config, https://platform.claude.com/docs/en/about-claude/models/overview, https://platform.claude.com/docs/en/about-claude/model-deprecations
 - 2026-11-10 — в каталоге 13.1 `fable` указывает на Claude Fable 5.2 (было 5.1): цена 8 / 40 вместо 10 / 50, effort по умолчанию в Claude Code — `medium`. Sonnet 5.5, Opus 5.5 и Haiku 5.5 без изменений (цены, алиасы). Алиасы агентов (`sonnet`/`opus`/`haiku`) работают, замен во frontmatter нет. `fable` по-прежнему нигде не используется без личного указания владельца и повторного подтверждения. Добавлено про алиасы у провайдеров (Bedrock/Google Cloud `sonnet` → 4.5, Foundry `opus` → 4.6). Источники: https://platform.claude.com/docs/en/about-claude/models/overview, https://code.claude.com/docs/en/model-config
 - 2026-10-18 — `fable` не используется нигде без личного указания владельца и повторного подтверждения (13.1, 13.2, 13.3 п. 2 и 4); эскалация кончается на `opus`, дальше стоп и вопрос владельцу. `code-reviewer` по умолчанию `sonnet` / `high` (frontmatter, `TEAM.md`, README), `opus` только по п. 10 в 13.3. Основание: у владельца 43 ревью шли на `opus`, потому что дефолт агента был `opus`; ~98 % расхода — перечитывание контекста, поэтому дорогая модель на рутинном ревью — лишний расход без выигрыша.
 - 2026-10-18 — правила 8 и 9 в 13.3: `opus` не для реализации и сборки (только с `WHY OPUS`), не больше одного `opus`-агента одновременно; в ТЗ поля `CONTEXT BUDGET` и `WAITING`. Основание: замеры у владельца за 16 часов (2103 вызова): 57 % расхода — перечитывание контекста, 41 % — запись кеша, 2 % — вывод модели; вызовы с контекстом больше 200 тыс. дали 75 % расхода, один `opus`-агент с контекстом до 850 тыс. — около 30 %. Расчёт: при потолке контекста 200 тыс. расход ниже примерно на 38 %.
